@@ -8,12 +8,12 @@ windows:
       layout: tiled
       panes:
         - bash /root/CrazySim/ros2_ws/src/icuas25_competition/launch/sitl_multiagent_text.sh -m crazyflie -f $SPAWN_POSE_DOC -w $ENV_NAME -n $NUM_ROBOTS
-        - waitForCfGazebo;sleep 8;bash ./generate_gazebo_bridge_yaml.sh $NUM_ROBOTS; ros2 launch icuas25_competition cf_velmux_launch.py
-        - waitForCfGazebo;sleep 10;ros2 launch icuas25_competition aruco_recognition.launch.py
-        - waitForCfGazebo;sleep 10;ros2 launch icuas25_competition octomap_server.launch.py
+        - waitForCfGazebo;sleep 5;bash ./generate_gazebo_bridge_yaml.sh $NUM_ROBOTS; ros2 launch icuas25_competition cf_velmux_launch.py
+        - waitForCfGazebo;sleep 7;ros2 launch icuas25_competition aruco_recognition.launch.py
+        - waitForCfGazebo;sleep 7;ros2 launch icuas25_competition octomap_server.launch.py
   - topic_pane:
       layout: tiled
       panes:
-        - waitForCfGazebo;sleep 12;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_go_to.py
-        - waitForCfGazebo;sleep 12;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/find_and_publish_arucos.py
-        - 
+        - waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_go_to.py
+        - waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/find_and_publish_arucos.py
+        - waitForCfGazebo;sleep 12;ros2 topic echo /target_info
