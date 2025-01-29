@@ -14,6 +14,6 @@ windows:
   - topic_pane:
       layout: tiled
       panes:
-        - history -s "ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args --remap cmd_vel:=/cf_1/cmd_vel"
-
- 
+        - waitForCfGazebo;sleep 12;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_go_to.py
+        - waitForCfGazebo;sleep 12;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/find_and_publish_arucos.py
+        - 
