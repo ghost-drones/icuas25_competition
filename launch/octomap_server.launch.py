@@ -13,10 +13,14 @@ def generate_launch_description():
         pass
     else:
         world_name = "_".join(environment_name.split("_")[:-1])
-        bt_file = os.path.join(
-        get_package_share_directory('icuas25_competition'),
-        'worlds', world_name, 'meshes', world_name+'.binvox.bt')
+        #bt_file = os.path.join(
+        #get_package_share_directory('icuas25_competition'),
+        #'worlds', world_name, 'meshes', world_name+'.binvox.bt')
 
+        bt_file = '/root/CrazySim/ros2_ws/src/icuas25_competition/worlds/' + world_name + '/meshes/' + world_name + '.binvox.bt'
+
+        print(bt_file)
+        
         launch_description.append(
             Node(
                package='octomap_server',

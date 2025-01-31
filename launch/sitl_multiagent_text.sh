@@ -102,5 +102,5 @@ trap "cleanup" SIGINT SIGTERM EXIT
 
 echo "Starting gazebo gui"
 #gdb ruby
-gz sim -r --headless-rendering
+gz sim -r
 #gz sim -g
