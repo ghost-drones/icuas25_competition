@@ -14,6 +14,7 @@ windows:
   - topic_pane:
       layout: tiled
       panes:
-        - waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_go_to.py
-        - waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/find_and_publish_arucos.py
-        - waitForCfGazebo;sleep 12;ros2 topic echo /target_info
+        - #waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_go_to.py
+        - #waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/find_and_publish_arucos.py
+        - waitForCfGazebo;sleep 9;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
+        - waitForCfGazebo;ros2 topic echo /map
