@@ -1,5 +1,5 @@
 <sdf version='1.10'>
-  <world name='city_1_arucos'>
+  <world name='test_1_world'>
     <physics type='ode'>
       <max_step_size>0.002</max_step_size>
       <real_time_factor>1</real_time_factor>
@@ -73,35 +73,9 @@
       <self_collide>false</self_collide>
     </model>
     <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/city_1</uri>
-      <name>city_1</name>
+      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/test_1</uri>
+      <name>test_1</name>
       <pose>0 0 0 0 0 0</pose>
-    </include>
-    
-    <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/aruco_markers/aruco_marker_1</uri>
-      <name>aruco_marker_1</name>
-      <pose>88.587699890136719 34.341999053955078 19.570499420166016 1.5110288711004334 1.5700000418165962 0.00010043712494769711</pose>
-    </include>
-    <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/aruco_markers/aruco_marker_2</uri>
-      <name>aruco_marker_2</name>
-      <pose>49.917949676513672 76.811897277832031 7.4506697654724121 1.5700000042340219 0 0</pose>
-    </include>
-    <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/aruco_markers/aruco_marker_3</uri>
-      <name>aruco_marker_3</name>
-      <pose>20.760629653930664 47.960700988769531 5.7737393379211426 1.5701357991543534 1.5699999788855461 0.00013659516476215822</pose>
-    </include>
-    <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/aruco_markers/aruco_marker_4</uri>
-      <name>aruco_marker_4</name>
-      <pose>46.691200256347656 108.62621307373047 8.9865016937255859 1.5715899837054641 0.00010056037728358766 -0.12665099268998176</pose>
-    </include>
-    <include>
-      <uri>file:///root/CrazySim/ros2_ws/src/icuas25_competition/launch/../worlds/aruco_markers/aruco_marker_5</uri>
-      <name>aruco_marker_5</name>
-      <pose>59.065990447998047 62.928287506103516 1.5549722909927368 1.5700000086716972 -1.9038041809693595e-08 1.5700000086716972</pose>
     </include>
 
     <light name='sun' type='directional'>

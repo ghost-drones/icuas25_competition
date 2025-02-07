@@ -8,7 +8,7 @@ class OctomapPublisher(Node):
         super().__init__('octomap_publisher')
         
         # Create a client for the GetOctomap service
-        self.cli = self.create_client(GetOctomap, '/octomap_binary')
+        self.cli = self.create_client(GetOctomap, '/octomap_full')
         # Create a publisher for the Octomap messages
         self.pub = self.create_publisher(Octomap, '/octomap', 10)
         # Create a timer to periodically trigger service requests
@@ -17,7 +17,7 @@ class OctomapPublisher(Node):
     def timer_callback(self):
         """Timer callback to send service requests periodically."""
         if not self.cli.service_is_ready():
-            self.get_logger().warn('Service /octomap_binary not available, waiting...')
+            self.get_logger().warn('Service /octomap_full not available, waiting...')
             return
 
         # Create and send the request
@@ -36,6 +36,7 @@ class OctomapPublisher(Node):
     def process_octomap(self, response):
         """Process the octomap and publish it."""
         octomap = response.map
+        
         self.pub.publish(octomap)
         self.get_logger().info('Octomap received and published.')
 
