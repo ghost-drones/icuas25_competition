@@ -42,6 +42,6 @@ docker run -it \
     --env SSH_AUTH_SOCK=/ssh-agent \
     --net=host \
     --privileged \
-    --gpus all \
+    --volume "$(pwd):/root/CrazySim/ros2_ws/src/icuas25_competition:rw" \
     --name crazysim_icuas_cont \
     crazysim_icuas_img
