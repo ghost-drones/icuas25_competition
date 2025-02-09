@@ -159,6 +159,8 @@ RUN git clone https://github.com/JMU-ROBOTICS-VIVA/ros2_aruco.git
 RUN --mount=type=ssh git clone git@github.com:ghost-drones/icuas25_competition.git
 RUN --mount=type=ssh git clone git@github.com:larics/icuas25_msgs.git
 
+RUN git clone -b ros2 https://github.com/OctoMap/octomap_rviz_plugins.git
+
 WORKDIR $HOME/CrazySim/ros2_ws/src/crazyflie/scripts
 RUN rm $HOME/CrazySim/ros2_ws/src/crazyswarm2/crazyflie/scripts/crazyflie_server.py
 COPY to_copy/crazyflie_server.py $HOME/CrazySim/ros2_ws/src/crazyswarm2/crazyflie/scripts/
