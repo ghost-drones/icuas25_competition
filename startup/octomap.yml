@@ -8,5 +8,11 @@ windows:
       layout: tiled
       panes:
         - ros2 launch icuas25_competition octomap_server.launch.py
-        - sleep 1;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
-        - sleep 2;rviz2
+        - python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
+        - rviz2 -d /root/CrazySim/ros2_ws/src/icuas25_competition/config/only_octomap.rviz
+        - ros2 run icuas25_competition octomap_colorizer
+  - topic_pane:
+      layout: tiled
+      panes:
+        - 
+        -
