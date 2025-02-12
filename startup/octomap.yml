@@ -10,9 +10,9 @@ windows:
         - ros2 launch icuas25_competition octomap_server.launch.py
         - python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
         - rviz2 -d /root/CrazySim/ros2_ws/src/icuas25_competition/config/only_octomap.rviz
-        - ros2 run icuas25_competition octomap_colorizer
+        - ros2 run icuas25_competition territorial_waters
   - topic_pane:
       layout: tiled
       panes:
-        - 
-        -
+        - ros2 run icuas25_competition graph
+        - ros2 topic echo /graph_finished

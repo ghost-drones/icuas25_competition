@@ -3,6 +3,7 @@ project(icuas25_competition)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-w)
 endif()
 
 # Set C++ standard
@@ -28,8 +29,20 @@ if(BUILD_TESTING)
 endif()
 
 # Add C++ executable
-add_executable(octomap_colorizer src/octomap_colorizer.cpp)
-ament_target_dependencies(octomap_colorizer
+add_executable(territorial_waters src/territorial_waters.cpp)
+ament_target_dependencies(territorial_waters
+  rclcpp
+  octomap
+  octomap_msgs
+  visualization_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
+)
+
+# Add C++ executable
+add_executable(graph src/graph.cpp)
+ament_target_dependencies(graph
   rclcpp
   octomap
   octomap_msgs
@@ -43,7 +56,12 @@ ament_target_dependencies(octomap_colorizer
 ament_python_install_package(${PROJECT_NAME})
 
 # Install executables
-install(TARGETS octomap_colorizer
+install(TARGETS territorial_waters
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install executables
+install(TARGETS graph
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS

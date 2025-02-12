@@ -42,7 +42,7 @@ public:
     slice_thickness_      = 2.8;  // por exemplo, 2.8 m de altura da fatia
     layer_margin_         = 5.0;  // amplia os limites em 5 metros
     territorial_distance_ = 3.0;  // 3 metros da costa
-    percent_remaining_goals_ = 20;  // %
+    percent_remaining_goals_ = 5;  // %
 
     // Subscreve o tópico do Octomap
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
