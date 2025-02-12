@@ -5,7 +5,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>  // se desejar manter marcadores visuais
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <queue>
@@ -38,19 +38,20 @@ public:
     // Parâmetros configuráveis:
     //   slice_thickness: espessura da fatia em z (em metros)
     //   layer_margin: quanto ampliar os limites (bounding box) de cada camada
-    //   territorial_distance: distância usada para definir “territorial waters”
-    slice_thickness_      = 2.8;  // por exemplo, 2.8 m de altura da fatia
-    layer_margin_         = 5.0;  // amplia os limites em 5 metros
-    territorial_distance_ = 3.0;  // 3 metros da costa
-    percent_remaining_goals_ = 5;  // %
+    //   territorial_distance: distância desejada do obstáculo para a pose
+    //   min_pose_distance: espaçamento mínimo entre poses (downsampling)
+    //   tol_factor: fator multiplicativo da resolução para definir a tolerância na seleção de células candidatas
+    slice_thickness_      = 2.8;   // altura da camada
+    layer_margin_         = 5.0;   // margem extra para definir a grade
+    territorial_distance_ = 3.0;   // distância desejada até o obstáculo
+    min_pose_distance_    = 3.0;   // espaçamento mínimo entre poses
+    tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
 
-    // Subscreve o tópico do Octomap
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
       "/octomap", 1,
       std::bind(&TerritorialWatersNode::octomapCallback, this, std::placeholders::_1)
     );
 
-    // Publica os resultados (lista de poses com posição e orientação)
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("drone_poses", 1);
 
     RCLCPP_INFO(this->get_logger(), "Nó territorial_waters_node iniciado!");
@@ -69,14 +70,11 @@ private:
     }
     double resolution = tree->getResolution();
 
-    // Agrupa os nós folhas por camada (fatia em z, de acordo com slice_thickness_)
-    // Para cada camada, armazenamos:
-    //   - Um vetor de tuplas (x, y, ocupado) para os centros dos nós.
-    //   - Os limites (bounding box) em x e y.
+    // Agrupa os nós folhas por camada (fatia em z)
     std::unordered_map<int, std::vector<std::tuple<double, double, bool>>> layers;
-    std::unordered_map<int, std::tuple<double, double, double, double>> layer_bounds; // min_x, max_x, min_y, max_y
+    // Para cada camada, guarda os limites: min_x, max_x, min_y, max_y
+    std::unordered_map<int, std::tuple<double, double, double, double>> layer_bounds;
 
-    // Determina os limites do Octomap
     double min_x, min_y, min_z;
     tree->getMetricMin(min_x, min_y, min_z);
 
@@ -86,40 +84,40 @@ private:
       double y = it.getY();
       double z = it.getZ();
 
-      // Calcula o índice da camada (fatia) usando slice_thickness_
+      // Define a camada com base na altura (slice_thickness_)
       int layer = static_cast<int>(std::floor(z / slice_thickness_));
       bool occupied = tree->isNodeOccupied(*it);
       layers[layer].push_back(std::make_tuple(x, y, occupied));
       
-      // Atualiza os limites da camada
+      // Atualiza os limites (bounding box) da camada
       if (layer_bounds.find(layer) == layer_bounds.end()) {
         layer_bounds[layer] = std::make_tuple(x, x, y, y);
       } else {
         auto &bounds = layer_bounds[layer];
-        std::get<0>(bounds) = std::min(std::get<0>(bounds), x); // min_x
-        std::get<1>(bounds) = std::max(std::get<1>(bounds), x); // max_x
-        std::get<2>(bounds) = std::min(std::get<2>(bounds), y); // min_y
-        std::get<3>(bounds) = std::max(std::get<3>(bounds), y); // max_y
+        std::get<0>(bounds) = std::min(std::get<0>(bounds), x);
+        std::get<1>(bounds) = std::max(std::get<1>(bounds), x);
+        std::get<2>(bounds) = std::min(std::get<2>(bounds), y);
+        std::get<3>(bounds) = std::max(std::get<3>(bounds), y);
       }
     }
 
-    // Inicializa a mensagem que conterá todas as poses (posição + orientação)
+    // Inicializa a mensagem com as poses finais
     geometry_msgs::msg::PoseArray pose_array;
     pose_array.header.frame_id = "world";
     pose_array.header.stamp = this->get_clock()->now();
 
-    // Identifica a camada mais baixa (geralmente correspondente ao chão) e ignora-a
+    // Define a camada inferior (geralmente o solo) e ignora-a
     int min_layer = std::numeric_limits<int>::max();
     for (const auto &layer_pair : layers) {
       min_layer = std::min(min_layer, layer_pair.first);
     }
 
-    // Processa cada camada (exceto a mais baixa)
+    // Processa cada camada, exceto a inferior
     for (auto &layer_pair : layers)
     {
       int layer = layer_pair.first;
       if (layer == min_layer)
-        continue;  // ignora a camada inferior
+        continue;
 
       auto &points = layer_pair.second;
       if (layer_bounds.find(layer) == layer_bounds.end())
@@ -128,20 +126,20 @@ private:
       double min_x_layer, max_x_layer, min_y_layer, max_y_layer;
       std::tie(min_x_layer, max_x_layer, min_y_layer, max_y_layer) = layer_bounds[layer];
       
-      // Aumenta os limites da camada de acordo com layer_margin_
+      // Expande os limites com base na margem
       min_x_layer -= layer_margin_;
       max_x_layer += layer_margin_;
       min_y_layer -= layer_margin_;
       max_y_layer += layer_margin_;
       
-      // Define a grade 2D com passo igual à resolução do octomap
+      // Cria a grade 2D com tamanho definido pela resolução
       int grid_width  = static_cast<int>(std::ceil((max_x_layer - min_x_layer) / resolution));
       int grid_height = static_cast<int>(std::ceil((max_y_layer - min_y_layer) / resolution));
       
-      // Cria a grade de ocupação (inicialmente "livre")
+      // Inicializa a grade de ocupação
       std::vector<std::vector<bool>> occ_grid(grid_width, std::vector<bool>(grid_height, false));
       
-      // Marca as células ocupadas (para cada nó ocupado)
+      // Marca as células ocupadas
       for (auto &pt : points)
       {
         double x, y;
@@ -160,14 +158,14 @@ private:
       // ====================================================
       const double INF = std::numeric_limits<double>::infinity();
       std::vector<std::vector<double>> dist(grid_width, std::vector<double>(grid_height, INF));
-      // Além da distância, armazenamos qual a célula ocupada (na grade) que foi a fonte
+      // Armazena qual célula ocupada foi a fonte para cada célula
       std::vector<std::vector<std::pair<int,int>>> nearest_occ(
           grid_width, std::vector<std::pair<int,int>>(grid_height, {-1, -1})
       );
       
       std::priority_queue<GridCell, std::vector<GridCell>, CompareGridCell> pq;
       
-      // Inicializa a fila com as células ocupadas (distância zero) e registra sua posição como fonte
+      // Inicializa a fila com as células ocupadas (distância zero)
       for (int i = 0; i < grid_width; i++) {
         for (int j = 0; j < grid_height; j++) {
           if (occ_grid[i][j]) {
@@ -178,7 +176,7 @@ private:
         }
       }
       
-      // Vizinhança 8-conectada: custo de "resolução" (adjacente) ou √2 * resolução (diagonal)
+      // Vizinhança 8-conectada
       std::vector<std::pair<int,int>> neighbors = {
         {1, 0}, {-1, 0}, {0, 1}, {0, -1},
         {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
@@ -201,7 +199,6 @@ private:
           double new_dist = dist[i][j] + cost;
           if (new_dist < dist[ni][nj]) {
             dist[ni][nj] = new_dist;
-            // Propaga a fonte (a célula ocupada original)
             nearest_occ[ni][nj] = nearest_occ[i][j];
             pq.push({ni, nj, new_dist});
           }
@@ -209,17 +206,17 @@ private:
       }
       
       // ====================================================
-      // Seleciona as células cuja distância seja aproximadamente territorial_distance_
-      // e gera a pose (posição + orientação) para o drone
+      // Seleciona células com distância próxima de territorial_distance_
+      // A tolerância é definida como: tol = tol_factor_ * resolution
       // ====================================================
-
-      double tol = resolution / 2.0;  // tolerância
+      double tol = tol_factor_ * resolution;
+      std::vector<geometry_msgs::msg::Pose> candidate_poses;
+      
       for (int i = 0; i < grid_width; i++) {
         for (int j = 0; j < grid_height; j++) {
           if (std::abs(dist[i][j] - territorial_distance_) < tol) {
 
-            if ((i + j) % (100 / static_cast<int>(percent_remaining_goals_)) == 0){
-            // Calcula o centro da célula na camada atual
+            // Calcula o centro da célula
             double cell_center_x = min_x_layer + i * resolution + resolution / 2.0;
             double cell_center_y = min_y_layer + j * resolution + resolution / 2.0;
             double cell_center_z = layer * slice_thickness_ + slice_thickness_ / 2.0;
@@ -228,18 +225,18 @@ private:
             p.y = cell_center_y;
             p.z = cell_center_z;
             
-            // Verifica se há uma interseção (por exemplo, com o teto) – se não houver, consideramos o ponto
+            // (Opcional) Verifica se há um obstáculo acima (por exemplo, teto)
             octomap::point3d end_ray;
             bool hit = tree->castRay(octomap::point3d(p.x, p.y, p.z),
                                        octomap::point3d(0, 0, 1),
                                        end_ray, true, -1);
             if (!hit) {
-              // Obtém a célula ocupada (na grade) que serviu de fonte
+              // Recupera a célula ocupada que serviu de fonte
               auto occ_idx = nearest_occ[i][j];
               double occ_x = min_x_layer + occ_idx.first * resolution + resolution / 2.0;
               double occ_y = min_y_layer + occ_idx.second * resolution + resolution / 2.0;
               
-              // Calcula o ângulo yaw para apontar do ponto candidato para o voxel ocupado
+              // Calcula o ângulo para orientar o drone em direção ao obstáculo
               double yaw = std::atan2(occ_y - p.y, occ_x - p.x);
               tf2::Quaternion q;
               q.setRPY(0, 0, yaw);
@@ -252,27 +249,74 @@ private:
               pose.orientation.z = q.z();
               pose.orientation.w = q.w();
               
-              pose_array.poses.push_back(pose);
-
-            }
+              candidate_poses.push_back(pose);
             }
           }
         }
       }
-    }
 
-    // Publica a lista de poses (posição + orientação) para o drone
+      if (candidate_poses.empty()) {
+        RCLCPP_WARN(this->get_logger(), "Nenhum candidato encontrado na camada %d", layer);
+        continue;
+      }
+
+      // ====================================================
+      // (Opcional) Ordena os candidatos por ângulo em relação ao centroide
+      // Caso os candidatos formem um contorno, essa ordenação pode ajudar,
+      // mas ela NÃO é indispensável para a filtragem global.
+      // ====================================================
+      double sum_x = 0.0, sum_y = 0.0;
+      for (const auto &pose : candidate_poses) {
+        sum_x += pose.position.x;
+        sum_y += pose.position.y;
+      }
+      double centroid_x = sum_x / candidate_poses.size();
+      double centroid_y = sum_y / candidate_poses.size();
+
+      std::sort(candidate_poses.begin(), candidate_poses.end(),
+                [centroid_x, centroid_y](const geometry_msgs::msg::Pose &a, const geometry_msgs::msg::Pose &b) {
+                  double angle_a = std::atan2(a.position.y - centroid_y, a.position.x - centroid_x);
+                  double angle_b = std::atan2(b.position.y - centroid_y, b.position.x - centroid_x);
+                  return angle_a < angle_b;
+                });
+
+      // ====================================================
+      // Filtragem Global: verifica cada candidato em relação a todas as poses aceitas
+      // ====================================================
+      std::vector<geometry_msgs::msg::Pose> filtered_poses;
+      for (const auto &pose_candidate : candidate_poses) {
+        bool keep = true;
+        for (const auto &accepted_pose : filtered_poses) {
+          double dx = pose_candidate.position.x - accepted_pose.position.x;
+          double dy = pose_candidate.position.y - accepted_pose.position.y;
+          double dz = pose_candidate.position.z - accepted_pose.position.z;
+          double d = std::sqrt(dx * dx + dy * dy + dz * dz);
+          if (d < min_pose_distance_) {
+            keep = false;
+            break;
+          }
+        }
+        if (keep) {
+          filtered_poses.push_back(pose_candidate);
+        }
+      }
+
+      // Adiciona as poses filtradas ao array global
+      for (const auto &pose : filtered_poses) {
+        pose_array.poses.push_back(pose);
+      }
+    } // fim do processamento por camada
+
+    // Publica todas as poses filtradas (para todas as camadas)
     pose_pub_->publish(pose_array);
-    
-    // (Opcional) Se desejar manter a publicação dos marcadores visuais (por exemplo, POINTS), basta ajustar aqui.
-    // ...
   }
   
   // Parâmetros configuráveis
   double slice_thickness_;
   double layer_margin_;
   double territorial_distance_;
-  double percent_remaining_goals_;
+  double min_pose_distance_;
+  double tol_factor_; // tol = tol_factor_ * resolution
   
   rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_pub_;
