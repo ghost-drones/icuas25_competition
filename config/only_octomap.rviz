@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Color Octomap1
+        - /PoseArray1
       Splitter Ratio: 0.5
     Tree Height: 725
   - Class: rviz_common/Selection
@@ -49,7 +49,7 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: octomap_rviz_plugins/OccupancyGrid
-      Enabled: false
+      Enabled: true
       Max. Height Display: 3.4028234663852886e+38
       Max. Octree Depth: 16
       Min. Height Display: -3.4028234663852886e+38
@@ -61,12 +61,12 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /octomap
-      Value: false
+      Value: true
       Voxel Alpha: 1
       Voxel Coloring: Z-Axis
       Voxel Rendering: Occupied Voxels
     - Class: octomap_rviz_plugins/ColorOccupancyGrid
-      Enabled: true
+      Enabled: false
       Max. Height Display: 3.4028234663852886e+38
       Max. Octree Depth: 16
       Min. Height Display: -3.4028234663852886e+38
@@ -78,21 +78,30 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /colored_octomap
-      Value: true
+      Value: false
       Voxel Alpha: 1
       Voxel Coloring: Cell Color
       Voxel Rendering: Occupied Voxels
-    - Class: rviz_default_plugins/MarkerArray
+    - Alpha: 0.5
+      Arrow Length: 1
+      Axes Length: 0.5
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/PoseArray
+      Color: 255; 25; 0
       Enabled: true
-      Name: MarkerArray
-      Namespaces:
-        drone_positions: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Axes
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /network_markers
+        Value: /drone_poses
       Value: true
   Enabled: true
   Global Options:
@@ -140,25 +149,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 50.464805603027344
+      Distance: 75.17103576660156
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 6.136485576629639
-        Y: -4.381136417388916
-        Z: 6.722328186035156
+        X: 22.260459899902344
+        Y: -7.956020832061768
+        Z: 10.373976707458496
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4303983747959137
+      Pitch: 0.40539881587028503
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.040395736694336
+      Yaw: 3.7604010105133057
     Saved: ~
 Window Geometry:
   Displays:
