@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /PoseArray1
       Splitter Ratio: 0.5
     Tree Height: 725
   - Class: rviz_common/Selection
@@ -103,6 +102,18 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /drone_poses
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        grid: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /marker_array
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -149,25 +160,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 75.17103576660156
+      Distance: 99.51553344726562
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 22.260459899902344
-        Y: -7.956020832061768
-        Z: 10.373976707458496
+        X: 29.021175384521484
+        Y: 2.0927414894104004
+        Z: 9.543521881103516
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.40539881587028503
+      Pitch: 0.46039822697639465
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.7604010105133057
+      Yaw: 3.7354040145874023
     Saved: ~
 Window Geometry:
   Displays:
