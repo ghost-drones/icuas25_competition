@@ -13,7 +13,7 @@ class ArucoProcessor(Node):
     def __init__(self):
         super().__init__('aruco_processor')
 
-        self.publisher = self.create_publisher(TargetInfo, '/target_info', 10)
+        self.publisher = self.create_publisher(TargetInfo, '/target_found', 10)
 
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         self.tf_buffer = tf2_ros.Buffer()

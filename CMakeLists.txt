@@ -20,6 +20,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -28,7 +29,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# Add C++ executable
+# Add C++ executable: territorial_waters
 add_executable(territorial_waters src/territorial_waters.cpp)
 ament_target_dependencies(territorial_waters
   rclcpp
@@ -40,7 +41,7 @@ ament_target_dependencies(territorial_waters
   tf2_ros
 )
 
-# Add C++ executable
+# Add C++ executable: graph
 add_executable(graph src/graph.cpp)
 ament_target_dependencies(graph
   rclcpp
@@ -52,18 +53,33 @@ ament_target_dependencies(graph
   tf2_ros
 )
 
+# Add C++ executable: sphere_pub
+add_executable(sphere_pub src/sphere_pub.cpp)
+ament_target_dependencies(sphere_pub
+  rclcpp
+  octomap
+  octomap_msgs
+  visualization_msgs
+  geometry_msgs
+  Eigen3
+)
+
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
-# Install executables
+# Install executáveis
 install(TARGETS territorial_waters
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install executables
 install(TARGETS graph
   DESTINATION lib/${PROJECT_NAME}
 )
+
+install(TARGETS sphere_pub
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(PROGRAMS
   scripts/TransformWorld2Odom.py
   scripts/charging.py
