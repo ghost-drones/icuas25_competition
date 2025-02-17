@@ -14,5 +14,5 @@ windows:
   - topic_pane:
       layout: tiled
       panes:
+        - #cd ../scripts/ && python3 test.py
         - ros2 run icuas25_competition sphere_pub
-        - # user

@@ -62,6 +62,8 @@ ament_target_dependencies(sphere_pub
   visualization_msgs
   geometry_msgs
   Eigen3
+  tf2
+  tf2_ros
 )
 
 # Install Python modules
