@@ -31,6 +31,32 @@ struct CompareGridCell {
   }
 };
 
+// Estrutura para representar um ponto 3D
+struct Vector3 {
+  double x, y, z;
+  Vector3(double _x=0, double _y=0, double _z=0): x(_x), y(_y), z(_z){}
+  Vector3 operator+(const Vector3 &o) const { return Vector3(x+o.x, y+o.y, z+o.z); }
+  Vector3 operator-(const Vector3 &o) const { return Vector3(x-o.x, y-o.y, z-o.z); }
+  Vector3 operator*(double s) const { return Vector3(x*s, y*s, z*s); }
+  double norm() const { return std::sqrt(x*x+y*y+z*z); }
+  Vector3 normalized() const { double n = norm(); return n<1e-6?Vector3():(*this)*(1.0/n); }
+};
+
+// Percorre verticalmente (com passo igual à resolução) a partir de p.z até o limite superior.
+bool obstacleAbove(const Vector3 &p, octomap::OcTree* tree) {
+  double resolution = tree->getResolution();
+  double max_x, max_y, max_z;
+  tree->getMetricMax(max_x, max_y, max_z);
+  for (double z = p.z + resolution; z <= max_z; z += resolution) {
+    octomap::OcTreeNode* node = tree->search(p.x, p.y, z);
+    if (node && tree->isNodeOccupied(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Classe principal
 class TerritorialWatersNode : public rclcpp::Node
 {
 public:
@@ -47,17 +73,14 @@ public:
     territorial_distance_ = 3.0;   // distância desejada até o obstáculo
     min_pose_distance_    = 2.5;   // espaçamento mínimo entre poses
     tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
-    distance_origin_       = 20.0;
+    distance_origin_      = 20.0;
 
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
-      "/octomap", 1,
+      "/ghost/octomap", 1,
       std::bind(&TerritorialWatersNode::octomapCallback, this, std::placeholders::_1)
     );
 
-    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("drone_poses", 1);
-
-    // Publicador para os marcadores de relações line-of-sight
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("los_markers", 1);
+    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ghost/drone_poses", 1);
 
     RCLCPP_INFO(this->get_logger(), "Nó territorial_waters_node iniciado!");
   }
@@ -75,9 +98,7 @@ private:
     }
     double resolution = tree->getResolution();
 
-    // ================================
     // Processamento para gerar poses
-    // ================================
 
     // Agrupa os nós folhas por camada (fatia em z)
     std::unordered_map<int, std::vector<std::tuple<double, double, bool>>> layers;
@@ -116,9 +137,6 @@ private:
     geometry_msgs::msg::PoseArray pose_array;
     pose_array.header.frame_id = "world";
     pose_array.header.stamp = this->get_clock()->now();
-
-    // Inicializa o MarkerArray para as relações line-of-sight
-    visualization_msgs::msg::MarkerArray los_marker_array;
 
     // Define a camada inferior (geralmente o solo) e ignora-a para poses
     int min_layer = std::numeric_limits<int>::max();
@@ -233,13 +251,9 @@ private:
             p.x = cell_center_x;
             p.y = cell_center_y;
             p.z = cell_center_z;
-            
-            // Verifica se há um obstáculo acima (por exemplo, teto)
-            octomap::point3d end_ray;
-            bool hit = tree->castRay(octomap::point3d(p.x, p.y, p.z),
-                                       octomap::point3d(0, 0, 1),
-                                       end_ray, true, -1);
-            if (!hit) {
+
+            // Verifica se há um obstáculo acima usando a função obstacleAbove (em vez de castRay)
+            if (!obstacleAbove(Vector3(p.x, p.y, p.z), tree.get())) {
               // Recupera a célula ocupada que serviu de fonte
               auto occ_idx = nearest_occ[i][j];
               double occ_x = min_x_layer + occ_idx.first * resolution + resolution / 2.0;
@@ -308,60 +322,9 @@ private:
         pose_array.poses.push_back(pose);
       }
 
-      // ================================================================
-      // Cálculo da relação line-of-sight entre as poses desta camada
-      // ================================================================
-      // Para cada par de poses, verifica se há linha de visão sem obstáculo.
-      // Se sim, registra a conexão.
-      std::vector<std::tuple<int, int, double>> graph_edges;
-      for (size_t i = 0; i < filtered_poses.size(); i++) {
-        for (size_t j = i + 1; j < filtered_poses.size(); j++) {
-          // Converte as posições para octomap::point3d
-          octomap::point3d p1(filtered_poses[i].position.x, filtered_poses[i].position.y, filtered_poses[i].position.z);
-          octomap::point3d p2(filtered_poses[j].position.x, filtered_poses[j].position.y, filtered_poses[j].position.z);
-          double dist = (p2 - p1).norm();
-
-          octomap::point3d direction = p2 - p1;
-          direction /= dist;
-          octomap::point3d hit;
-          bool obstacle_hit = tree->castRay(p1, direction, hit, dist);
-          if (!obstacle_hit && dist < distance_origin_) {
-            graph_edges.push_back(std::make_tuple(i, j, dist));
-          }
-        }
-      }
-      
-      // Cria um marcador para as conexões line-of-sight desta camada
-      visualization_msgs::msg::Marker marker;
-      marker.header.frame_id = "world";
-      marker.header.stamp = pose_array.header.stamp;
-      marker.ns = "los_edges_layer_" + std::to_string(layer);
-      marker.id = layer;
-      marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-      marker.action = visualization_msgs::msg::Marker::ADD;
-      marker.scale.x = 0.1; // espessura da linha
-      marker.color.r = 1.0;
-      marker.color.g = 0.0;
-      marker.color.b = 0.0;
-      marker.color.a = 1.0;
-      
-      // Adiciona cada aresta (par de pontos) ao marcador
-      for (const auto &edge : graph_edges) {
-        int idx1, idx2;
-        double d;
-        std::tie(idx1, idx2, d) = edge;
-        marker.points.push_back(filtered_poses[idx1].position);
-        marker.points.push_back(filtered_poses[idx2].position);
-      }
-      
-      // Adiciona o marcador ao MarkerArray (mesmo que não haja nenhuma conexão, ele será publicado e poderá ser depurado)
-      los_marker_array.markers.push_back(marker);
-    } // fim do processamento por camada
-
     // Publica as poses filtradas
     pose_pub_->publish(pose_array);
-    // Publica os marcadores das relações line-of-sight
-    marker_pub_->publish(los_marker_array);
+  }
   }
   
   // Parâmetros configuráveis
@@ -374,7 +337,6 @@ private:
   
   rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 };
 
 int main(int argc, char **argv)

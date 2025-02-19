@@ -10,7 +10,7 @@ class OctomapPublisher(Node):
         # Create a client for the GetOctomap service
         self.cli = self.create_client(GetOctomap, '/octomap_full')
         # Create a publisher for the Octomap messages
-        self.pub = self.create_publisher(Octomap, '/octomap', 1)
+        self.pub = self.create_publisher(Octomap, '/ghost/octomap', 1)
         # Create a timer to periodically trigger service requests
         self.timer = self.create_timer(1.0, self.timer_callback)
         

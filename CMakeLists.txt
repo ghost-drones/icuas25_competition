@@ -21,6 +21,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(icuas25_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -41,21 +42,9 @@ ament_target_dependencies(territorial_waters
   tf2_ros
 )
 
-# Add C++ executable: graph
-add_executable(graph src/graph.cpp)
-ament_target_dependencies(graph
-  rclcpp
-  octomap
-  octomap_msgs
-  visualization_msgs
-  geometry_msgs
-  tf2
-  tf2_ros
-)
-
-# Add C++ executable: sphere_pub
-add_executable(sphere_pub src/sphere_pub.cpp)
-ament_target_dependencies(sphere_pub
+# Add C++ executable: hotspots
+add_executable(hotspots src/hotspots.cpp)
+ament_target_dependencies(hotspots
   rclcpp
   octomap
   octomap_msgs
@@ -64,6 +53,7 @@ ament_target_dependencies(sphere_pub
   Eigen3
   tf2
   tf2_ros
+  icuas25_msgs
 )
 
 # Install Python modules
@@ -74,11 +64,7 @@ install(TARGETS territorial_waters
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS graph
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(TARGETS sphere_pub
+install(TARGETS hotspots
   DESTINATION lib/${PROJECT_NAME}
 )
 

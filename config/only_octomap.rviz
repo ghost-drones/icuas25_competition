@@ -59,27 +59,10 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /octomap
+        Value: /ghost/octomap
       Value: true
       Voxel Alpha: 1
       Voxel Coloring: Z-Axis
-      Voxel Rendering: Occupied Voxels
-    - Class: octomap_rviz_plugins/ColorOccupancyGrid
-      Enabled: false
-      Max. Height Display: 3.4028234663852886e+38
-      Max. Octree Depth: 16
-      Min. Height Display: -3.4028234663852886e+38
-      Name: Color Octomap
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /colored_octomap
-      Value: false
-      Voxel Alpha: 1
-      Voxel Coloring: Cell Color
       Voxel Rendering: Occupied Voxels
     - Alpha: 0.5
       Arrow Length: 1
@@ -90,7 +73,7 @@ Visualization Manager:
       Enabled: true
       Head Length: 0.07000000029802322
       Head Radius: 0.029999999329447746
-      Name: PoseArray
+      Name: Waypoints
       Shaft Length: 0.23000000417232513
       Shaft Radius: 0.009999999776482582
       Shape: Axes
@@ -100,21 +83,31 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /drone_poses
+        Value: /ghost/drone_poses
       Value: true
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: MarkerArray
+      Enabled: false
+      Name: Hotspots
       Namespaces:
-        hotspots: true
-        relations: true
-        wifi_ranges: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /visualization_marker_array
+        Value: /ghost/visualization_marker_array
+      Value: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Trajectory
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/trajectory_markers
       Value: true
   Enabled: true
   Global Options:
@@ -162,7 +155,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 76.95513916015625
+      Distance: 85.72408294677734
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -177,10 +170,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.47039905190467834
+      Pitch: 0.4847966730594635
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.612243413925171
+      Yaw: 3.4222540855407715
     Saved: ~
 Window Geometry:
   Displays:
