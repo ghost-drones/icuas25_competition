@@ -10,11 +10,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
 
-EPSILON = 0.1  # Tolerância para considerar altitudes iguais
+EPSILON = 0.1
 
-#########################################
-# Classes Auxiliares para Interpolação  #
-#########################################
 class DummyPosition:
     def __init__(self, x=0.0, y=0.0, z=0.0):
         self.x = x
@@ -36,9 +33,6 @@ class DummyWaypoint:
         self.cluster_id = cluster_id
         self.cluster_los = cluster_los if cluster_los is not None else []
 
-#########################################
-# Funções Auxiliares de Cálculo         #
-#########################################
 def distance_from_origin(pose):
     """Calcula a distância 3D da pose à origem."""
     return math.sqrt(pose.position.x**2 + pose.position.y**2 + pose.position.z**2)
@@ -135,9 +129,6 @@ def divide_trajectory_equal(trajectory, divisions):
         segments.append([boundaries[i], boundaries[i+1]])
     return segments
 
-#########################################
-# Processamento dos Clusters            #
-#########################################
 def group_clusters(msg):
     """Agrupa os waypoints por cluster_id."""
     clusters = {}
@@ -199,15 +190,11 @@ def build_trajectory(waypoints):
         path.insert(best_insertion, best_candidate)
         remaining.remove(best_candidate)
     
-    # Se ainda restarem nós que não puderam ser inseridos (por restrição de LOS),
-    # tente adicioná-los ao final (caso a partir do último nó haja LOS para eles).
-    # Essa etapa pode ser customizada conforme a necessidade.
     if remaining:
         for candidate in remaining:
             if candidate.id in path[-1].cluster_los:
                 path.append(candidate)
             else:
-                # Se mesmo assim não houver LOS, tente inseri-los por força (a aresta terá custo infinito)
                 path.append(candidate)
         # Por fim, garanta que end_wp esteja no final
         if path[-1] != end_wp:
@@ -253,19 +240,15 @@ def process_clusters(msg, num_robots):
         data = compute_cluster_priority(cluster_id, wps, traj, num_robots)
         clusters_data.append(data)
 
-    # Ordena: primeiro por maior drone_capacity, depois por maior total_connections e, finalmente, menor distance_transition_points
     clusters_sorted = sorted(clusters_data, key=lambda c: (-c['drone_capacity'],
                                                             -c['total_connections']))
-    # Atribui o rank de prioridade (0 = maior prioridade) e o total de clusters para uso na cor
+
     total_clusters = len(clusters_sorted)
     for rank, cluster in enumerate(clusters_sorted):
         cluster['priority_rank'] = rank
         cluster['total_clusters'] = total_clusters
     return clusters_sorted
 
-#########################################
-# Publicação no RViz                    #
-#########################################
 def publish_clusters_markers(node, clusters_data):
     """
     Publica os marcadores dos clusters:
@@ -487,13 +470,10 @@ def aggregate_markers(node, clusters_data):
     markers.extend(publish_pose_id_markers(node, clusters_data))
     return markers
 
-#########################################
-# Nó ROS Principal                      #
-#########################################
 class TrajectoryBuilder(Node):
     def __init__(self):
         super().__init__('trajectory_builder')
-        self.executed = False  # Garante execução única
+        self.executed = False
         self.subscription = self.create_subscription(
             Waypoints,
             '/ghost/waypoints',
