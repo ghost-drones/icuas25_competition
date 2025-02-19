@@ -16,6 +16,7 @@
 #include <cmath>
 #include <memory>
 #include <algorithm>
+#include <string>
 
 // Estrutura para células da grade (usada no Dijkstra)
 struct GridCell {
@@ -30,6 +31,32 @@ struct CompareGridCell {
   }
 };
 
+// Estrutura para representar um ponto 3D
+struct Vector3 {
+  double x, y, z;
+  Vector3(double _x=0, double _y=0, double _z=0): x(_x), y(_y), z(_z){}
+  Vector3 operator+(const Vector3 &o) const { return Vector3(x+o.x, y+o.y, z+o.z); }
+  Vector3 operator-(const Vector3 &o) const { return Vector3(x-o.x, y-o.y, z-o.z); }
+  Vector3 operator*(double s) const { return Vector3(x*s, y*s, z*s); }
+  double norm() const { return std::sqrt(x*x+y*y+z*z); }
+  Vector3 normalized() const { double n = norm(); return n<1e-6?Vector3():(*this)*(1.0/n); }
+};
+
+// Percorre verticalmente (com passo igual à resolução) a partir de p.z até o limite superior.
+bool obstacleAbove(const Vector3 &p, octomap::OcTree* tree) {
+  double resolution = tree->getResolution();
+  double max_x, max_y, max_z;
+  tree->getMetricMax(max_x, max_y, max_z);
+  for (double z = p.z + resolution; z <= max_z; z += resolution) {
+    octomap::OcTreeNode* node = tree->search(p.x, p.y, z);
+    if (node && tree->isNodeOccupied(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Classe principal
 class TerritorialWatersNode : public rclcpp::Node
 {
 public:
@@ -46,14 +73,14 @@ public:
     territorial_distance_ = 3.0;   // distância desejada até o obstáculo
     min_pose_distance_    = 2.5;   // espaçamento mínimo entre poses
     tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
+    distance_origin_      = 20.0;
 
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
-      "/octomap", 1,
+      "/ghost/octomap", 1,
       std::bind(&TerritorialWatersNode::octomapCallback, this, std::placeholders::_1)
     );
 
-    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("drone_poses", 1);
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/marker_array", 1);
+    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ghost/drone_poses", 1);
 
     RCLCPP_INFO(this->get_logger(), "Nó territorial_waters_node iniciado!");
   }
@@ -71,9 +98,7 @@ private:
     }
     double resolution = tree->getResolution();
 
-    // ================================
     // Processamento para gerar poses
-    // ================================
 
     // Agrupa os nós folhas por camada (fatia em z)
     std::unordered_map<int, std::vector<std::tuple<double, double, bool>>> layers;
@@ -226,13 +251,9 @@ private:
             p.x = cell_center_x;
             p.y = cell_center_y;
             p.z = cell_center_z;
-            
-            // Verifica se há um obstáculo acima (por exemplo, teto)
-            octomap::point3d end_ray;
-            bool hit = tree->castRay(octomap::point3d(p.x, p.y, p.z),
-                                       octomap::point3d(0, 0, 1),
-                                       end_ray, true, -1);
-            if (!hit) {
+
+            // Verifica se há um obstáculo acima usando a função obstacleAbove (em vez de castRay)
+            if (!obstacleAbove(Vector3(p.x, p.y, p.z), tree.get())) {
               // Recupera a célula ocupada que serviu de fonte
               auto occ_idx = nearest_occ[i][j];
               double occ_x = min_x_layer + occ_idx.first * resolution + resolution / 2.0;
@@ -300,81 +321,10 @@ private:
       for (const auto &pose : filtered_poses) {
         pose_array.poses.push_back(pose);
       }
-    } // fim do processamento por camada
 
     // Publica as poses filtradas
     pose_pub_->publish(pose_array);
-
-    // ================================
-    // Geração da rede de marcadores independente do Octomap
-    // Utilizando os limites do Octomap escalados em 1.5
-    // ================================
-    visualization_msgs::msg::MarkerArray grid_marker_array;
-    int marker_id = 0;
-    
-    // Calcula o centro e as metades das dimensões
-    double center_x = (min_x + max_x) / 2.0;
-    double center_y = (min_y + max_y) / 2.0;
-    double half_size_x = (max_x - min_x) / 2.0;
-    double half_size_y = (max_y - min_y) / 2.0;
-    
-    double multiple = 1.5;
-
-    double grid_min_x = center_x - multiple * half_size_x;
-    double grid_max_x = center_x + multiple * half_size_x;
-    double grid_min_y = center_y - multiple * half_size_y;
-    double grid_max_y = center_y + multiple * half_size_y;
-    
-    for (double x = grid_min_x; x <= grid_max_x; x += layer_margin_) {
-      for (double y = grid_min_y; y <= grid_max_y; y += layer_margin_) {
-        for (double z = 0; z <= max_z*multiple; z += slice_thickness_) {
-          geometry_msgs::msg::Point p;
-          p.x = x;
-          p.y = y;
-          p.z = z;
-          
-          // Verifica se há voxel acima (por exemplo, teto)
-          octomap::point3d start(p.x, p.y, p.z);
-          octomap::point3d end_ray;
-          octomap::point3d end_ray2;
-
-          bool hit = tree->castRay(start, octomap::point3d(0, 0, 1), end_ray, true, -1);
-
-          bool hit2 = tree->castRay(start, -start, end_ray2, true, -1);
-
-          if (hit || hit2) {
-            // Se houver voxel acima, não adiciona o marcador
-            continue;
-          }
-          
-          visualization_msgs::msg::Marker marker;
-          marker.header.frame_id = "world";
-          marker.header.stamp = this->get_clock()->now();
-          marker.ns = "grid";
-          marker.id = marker_id++;
-          marker.type = visualization_msgs::msg::Marker::SPHERE;
-          marker.action = visualization_msgs::msg::Marker::ADD;
-          marker.pose.position = p;
-          marker.pose.orientation.x = 0.0;
-          marker.pose.orientation.y = 0.0;
-          marker.pose.orientation.z = 0.0;
-          marker.pose.orientation.w = 1.0;
-          marker.scale.x = 0.2;
-          marker.scale.y = 0.2;
-          marker.scale.z = 0.2;
-          marker.color.r = 0.0;
-          marker.color.g = 1.0;
-          marker.color.b = 0.0;
-          marker.color.a = 1.0;
-          marker.lifetime = rclcpp::Duration::from_seconds(0);
-          
-          grid_marker_array.markers.push_back(marker);
-        }
-      }
-    }
-
-    // Publica a rede de marcadores
-    marker_pub_->publish(grid_marker_array);
+  }
   }
   
   // Parâmetros configuráveis
@@ -383,10 +333,10 @@ private:
   double territorial_distance_;
   double min_pose_distance_;
   double tol_factor_;
+  double distance_origin_;
   
   rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 };
 
 int main(int argc, char **argv)

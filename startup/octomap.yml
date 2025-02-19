@@ -14,5 +14,5 @@ windows:
   - topic_pane:
       layout: tiled
       panes:
-        - ros2 run icuas25_competition graph
-        - ros2 topic echo /graph_finished
+        - cd ../scripts/ && python3 trajectory.py
+        - ros2 run icuas25_competition sphere_pub
