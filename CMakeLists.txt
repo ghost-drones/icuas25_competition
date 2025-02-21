@@ -68,6 +68,7 @@ install(TARGETS hotspots
   DESTINATION lib/${PROJECT_NAME}
 )
 
+
 install(PROGRAMS
   scripts/TransformWorld2Odom.py
   scripts/charging.py

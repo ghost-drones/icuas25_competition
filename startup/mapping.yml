@@ -15,4 +15,5 @@ windows:
       layout: tiled
       panes:
         - cd ../scripts/ && python3 trajectory.py
-        - ros2 run icuas25_competition sphere_pub
+        - cd ../scripts/ && python3 manage_trajectories.py
+        - ros2 run icuas25_competition hotspots

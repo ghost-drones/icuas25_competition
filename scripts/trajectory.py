@@ -3,8 +3,10 @@ import rclpy
 from rclpy.node import Node
 import math
 import os
-import numpy as np
+import json
 
+from std_msgs.msg import String  # Publica a trajetória individual (em JSON)
+from visualization_msgs.msg import MarkerArray
 from icuas25_msgs.msg import Waypoints
 from rviz_publishers import aggregate_markers
 
@@ -42,13 +44,9 @@ def group_clusters(msg):
 
 def build_trajectory(waypoints):
     """
-    Constrói uma trajetória que passe por TODOS os waypoints do cluster 
-    (do ponto de transição inicial ao final), minimizando a distância total
-    e penalizando movimentos verticais, usando apenas arestas com LOS direto.
-    
-    A solução é construída de forma aproximada por meio de uma heurística de inserção.
+    Constrói uma trajetória aproximada para o cluster usando uma heurística de inserção.
     """
-    vertical_weight = 2.0  # Fator para penalizar movimentos verticais
+    vertical_weight = 2.0
 
     def cost(wpA, wpB):
         if wpB.id not in wpA.cluster_los:
@@ -100,10 +98,7 @@ def build_trajectory(waypoints):
 
 def compute_cluster_priority(cluster_id, waypoints, trajectory, num_robots):
     """
-    Calcula os parâmetros de prioridade para o cluster:
-      - drone_capacity: número de drones que podem mapear simultaneamente
-      - distance_walked: distância total entre o primeiro e o último ponto da trajetória
-      - total_connections: tamanho da trajetória
+    Calcula os parâmetros de prioridade para o cluster.
     """
     drone_capacity = num_robots - waypoints[0].order
     distance_walked = compute_cumulative_distances(trajectory)[-1]
@@ -113,28 +108,159 @@ def compute_cluster_priority(cluster_id, waypoints, trajectory, num_robots):
         'trajectory': trajectory,
         'drone_capacity': drone_capacity,
         'distance_walked': distance_walked,
-        'total_connections': total_connections
+        'total_connections': total_connections,
+        'order': waypoints[0].order
     }
 
 def process_clusters(msg, num_robots):
-    """Processa os clusters: agrupa, constrói trajetórias e calcula o ranking de prioridade."""
+    """
+    Processa os clusters: agrupamento, construção de trajetórias e cálculo de prioridades.
+    """
     clusters = group_clusters(msg)
     clusters_data = []
-    transition_points = []
-    for waypoint in msg.waypoints:
-        if waypoint.transition_point:
-            transition_points.append([waypoint.id, waypoint.cluster_id, waypoint.order])
     for cluster_id, wps in clusters.items():
         traj = build_trajectory(wps)
         data = compute_cluster_priority(cluster_id, wps, traj, num_robots)
         clusters_data.append(data)
-    clusters_sorted = sorted(clusters_data, key=lambda c: (-c['drone_capacity'],
-                                                            -c['total_connections']))
+    clusters_sorted = sorted(clusters_data, key=lambda c: (-c['drone_capacity'], -c['total_connections']))
     total_clusters = len(clusters_sorted)
     for rank, cluster in enumerate(clusters_sorted):
         cluster['priority_rank'] = rank
         cluster['total_clusters'] = total_clusters
     return clusters_sorted
+
+def get_cluster_chain(cid, clusters_info):
+    """
+    Retorna a cadeia de suporte para um cluster, ex: [1, 5, 0].
+    """
+    if cid == 0:
+        return [0]
+    chain = [cid]
+    visited = {cid}
+    current = cid
+    while True:
+        if current not in clusters_info:
+            chain.append(0)
+            break
+        parent = clusters_info[current]['prev_cluster_id']
+        if parent is None:
+            break
+        if parent == 0:
+            chain.append(0)
+            break
+        if parent in visited:
+            chain.append(f"(ciclo {parent})")
+            break
+        chain.append(parent)
+        visited.add(parent)
+        current = parent
+    return chain
+
+def get_cluster_chains_str(msg):
+    """
+    Retorna uma string com a relação total dos clusters, linha a linha.
+    """
+    clusters_info = {}
+    order_list = []
+    clusters_info[0] = {'prev_cluster_id': None, 'order': 0}
+    order_list.append(0)
+    for wp in msg.waypoints:
+        if wp.transition_point:
+            cid = wp.cluster_id
+            if cid not in clusters_info:
+                clusters_info[cid] = {'prev_cluster_id': wp.prev_cluster_id, 'order': wp.order}
+                order_list.append(cid)
+    lines = ["Relação total dos clusters:"]
+    for cid in order_list:
+        chain = get_cluster_chain(cid, clusters_info)
+        lines.append(f"Cluster {cid}: {chain}")
+    return "\n".join(lines)
+
+def generate_macro_trajectory(clusters_data, clusters_info):
+    """
+    Gera uma macro trajetória única representando a ida e a volta dos clusters.
+    """
+    def get_chain(cid):
+        if cid == 0:
+            return []
+        chain = [cid]
+        visited = {cid}
+        current = cid
+        while True:
+            if current not in clusters_info:
+                break
+            parent = clusters_info[current]['prev_cluster_id']
+            if parent is None or parent == 0:
+                break
+            if parent in visited:
+                chain.append(f"(ciclo {parent})")
+                break
+            chain.append(parent)
+            visited.add(parent)
+            current = parent
+        return chain
+
+    macro_chain = ["E0", "RS0"]  # Inicia na base
+    for cluster in clusters_data:
+        cid = cluster['cluster_id']
+        if cid == 0:
+            continue
+        chain = get_chain(cid)
+        if not chain:
+            segment = ["IS" + str(cid), "E" + str(cid), "RS" + str(cid), "RS0"]
+        else:
+            reversed_chain = list(reversed(chain))
+            outbound = ["IS" + str(x) for x in reversed_chain] + ["E" + str(cid)]
+            inbound = ["RS" + str(x) for x in reversed(reversed_chain)] + ["RS0"]
+            segment = outbound + inbound
+        macro_chain.extend(segment)
+    return macro_chain
+
+def translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_drones):
+    """
+    Traduz a macro trajetória para trajetórias individuais.
+    Para cada "E<cid>": se o cluster tiver ordem n > 0, drones com índice < n recebem "S<cid>".
+    """
+    drone_trajs = {i: [] for i in range(num_drones)}
+    for instr in macro_traj:
+        if instr.startswith("E"):
+            cid_str = instr[1:]
+            try:
+                cid = int(cid_str)
+            except ValueError:
+                cid = None
+            if cid is not None and cid in cluster_orders and cluster_orders[cid] > 0:
+                order = cluster_orders[cid]
+                for i in range(num_drones):
+                    if i < order:
+                        drone_trajs[i].append("S" + cid_str)
+                    else:
+                        drone_trajs[i].append(instr)
+            else:
+                for i in range(num_drones):
+                    drone_trajs[i].append(instr)
+        else:
+            for i in range(num_drones):
+                drone_trajs[i].append(instr)
+    return drone_trajs
+
+def create_base_waypoint():
+    """
+    Cria o waypoint base (ponto de suporte estacionário).
+    """
+    class BaseWaypoint:
+        pass
+    base = BaseWaypoint()
+    base.id = 0
+    class DummyPosition:
+        def __init__(self, x, y, z):
+            self.x = x; self.y = y; self.z = z
+    class DummyPose:
+        def __init__(self, x, y, z):
+            self.position = DummyPosition(x, y, z)
+    base.pose = DummyPose(0.0, 0.0, 0.0)
+    base.order = 0
+    return base
 
 class TrajectoryBuilder(Node):
     def __init__(self):
@@ -145,29 +271,72 @@ class TrajectoryBuilder(Node):
             '/ghost/waypoints',
             self.waypoints_callback,
             10)
-        from visualization_msgs.msg import MarkerArray  # Import local para publisher
         self.marker_pub = self.create_publisher(MarkerArray, '/ghost/trajectory_markers', 10)
-        self.get_logger().info('TrajectoryBuilder iniciado.')
+        # Publishers para trajetórias individuais
+        self.drone_publishers = {}
+        self.drone_trajs = None  # Será definido na callback
+        self.timer = None
+        print('TrajectoryBuilder iniciado.')
 
     def waypoints_callback(self, msg):
         if self.executed:
             return
         self.executed = True
-        num_robots = int(os.getenv("NUM_ROBOTS", "1"))
+        num_robots = int(os.getenv("NUM_ROBOTS", "5"))
         clusters_data = process_clusters(msg, num_robots)
-        self.get_logger().info("Ordem de prioridade dos clusters:")
+        
+        # Constrói dicionário de clusters para suporte
+        clusters_info = {}
+        clusters_info[0] = {'prev_cluster_id': None, 'order': 0}
+        for wp in msg.waypoints:
+            if wp.transition_point:
+                cid = wp.cluster_id
+                if cid not in clusters_info:
+                    clusters_info[cid] = {'prev_cluster_id': wp.prev_cluster_id, 'order': wp.order}
+        
+        print("Ordem de prioridade dos clusters:")
         for idx, c in enumerate(clusters_data):
-            self.get_logger().info(
+            chain = get_cluster_chain(c['cluster_id'], clusters_info)
+            print(
                 f"{idx+1}º: Cluster {c['cluster_id']} | Drone Cap.: {c['drone_capacity']} | "
-                f"Conexões: {c['total_connections']}"
+                f"Conexões: {c['total_connections']} | Ordem: {c['order']} | Suporte: {chain}"
             )
+        
+        chains_str = get_cluster_chains_str(msg)
+        
+        macro_traj = generate_macro_trajectory(clusters_data, clusters_info)
+        #print("Macro Trajetória da Missão:")
+        #print(str(macro_traj))
+        
+        cluster_orders = {cluster['cluster_id']: cluster['order'] for cluster in clusters_data}
+        self.drone_trajs = translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_robots)
+        print("Trajetória individual para cada drone:")
+        for drone_id in sorted(self.drone_trajs.keys()):
+            print(f"Drone {drone_id}: {self.drone_trajs[drone_id]}")
+        
+        # Cria publishers para cada drone: tópicos /ghost/cf_x/trajectory_code
+        for drone_id in range(num_robots):
+            topic = f"/ghost/cf_{drone_id}/trajectory_code"
+            self.drone_publishers[drone_id] = self.create_publisher(String, topic, 10)
+        
+        # Armazena os markers para publicação periódica
         markers = aggregate_markers(self, clusters_data)
-        from visualization_msgs.msg import MarkerArray
         marker_array = MarkerArray()
         marker_array.markers = markers
-        self.marker_pub.publish(marker_array)
-        self.get_logger().info("Marcadores publicados no RViz: clusters, pontos de transição, trajetórias ótimas, rota de retorno e IDs das poses.")
-        rclpy.shutdown()
+        self.marker_array = marker_array  # Armazena para publicação no timer
+        
+        # Inicia o timer para publicar as trajetórias e os markers a 1Hz
+        self.timer = self.create_timer(1.0, self.timer_callback)
+
+    def timer_callback(self):
+        # Publica a trajetória de cada drone
+        for drone_id, pub in self.drone_publishers.items():
+            msg = String()
+            msg.data = json.dumps(self.drone_trajs[drone_id])
+            pub.publish(msg)
+
+        # Publica os markers também a 1Hz
+        self.marker_pub.publish(self.marker_array)
 
 def main(args=None):
     rclpy.init(args=args)

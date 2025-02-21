@@ -10,7 +10,7 @@ cd "$SCRIPTPATH"
 rm .tmuxinator.yml
 
 # link the session file to .tmuxinator.yml
-ln octomap.yml .tmuxinator.yml
+ln mapping.yml .tmuxinator.yml
 
 SETUP_NAME=$1
 [ -z "$SETUP_NAME" ] && SETUP_NAME=_setup.sh 

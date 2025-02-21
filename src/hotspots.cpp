@@ -404,6 +404,12 @@ private:
       icuas25_msgs::msg::WaypointInfo wp;
       wp.id = static_cast<int64_t>(i);
       wp.cluster_id = static_cast<int64_t>(cluster_ids[i]);
+      // Novo campo: atribui prev_cluster_id com base no nó pai
+      if (parent_index[i] != -1) {
+        wp.prev_cluster_id = static_cast<int64_t>(cluster_ids[parent_index[i]]);
+      } else {
+        wp.prev_cluster_id = 0;
+      }
       wp.order = static_cast<int64_t>(orders[i]);
       wp.pose = allPosesFull[i];  // Usa a pose completa, com orientação
       wp.cluster_los = cluster_los[i];

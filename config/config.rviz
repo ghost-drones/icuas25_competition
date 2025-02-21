@@ -184,10 +184,10 @@ Visualization Manager:
         Value: /cf_5/image
       Value: false
     - Class: octomap_rviz_plugins/OccupancyGrid
-      Enabled: false
-      Max. Height Display: inf
+      Enabled: true
+      Max. Height Display: 3.4028234663852886e+38
       Max. Octree Depth: 16
-      Min. Height Display: -inf
+      Min. Height Display: -3.4028234663852886e+38
       Name: Octomap
       Topic:
         Depth: 5
@@ -195,11 +195,111 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /octomap
-      Value: false
+        Value: /ghost/octomap
+      Value: true
       Voxel Alpha: 1
       Voxel Coloring: Z-Axis
       Voxel Rendering: Occupied Voxels
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: Hotspots
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/visualization_marker_array
+      Value: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Trajectory
+      Namespaces:
+        cluster_0_full: true
+        cluster_0_id: true
+        cluster_0_optimal: true
+        cluster_0_pose_ids: true
+        cluster_0_return_path: true
+        cluster_0_transition_end: true
+        cluster_0_transition_end_text: true
+        cluster_0_transition_start: true
+        cluster_1_full: true
+        cluster_1_id: true
+        cluster_1_optimal: true
+        cluster_1_pose_ids: true
+        cluster_1_return_path: true
+        cluster_1_transition_end: true
+        cluster_1_transition_end_text: true
+        cluster_1_transition_start: true
+        cluster_2_full: true
+        cluster_2_id: true
+        cluster_2_optimal: true
+        cluster_2_pose_ids: true
+        cluster_2_return_path: true
+        cluster_2_transition_end: true
+        cluster_2_transition_end_text: true
+        cluster_2_transition_start: true
+        cluster_3_full: true
+        cluster_3_id: true
+        cluster_3_optimal: true
+        cluster_3_pose_ids: true
+        cluster_3_return_path: true
+        cluster_3_transition_end: true
+        cluster_3_transition_end_text: true
+        cluster_3_transition_start: true
+        cluster_4_full: true
+        cluster_4_id: true
+        cluster_4_optimal: true
+        cluster_4_pose_ids: true
+        cluster_4_return_path: true
+        cluster_4_transition_end: true
+        cluster_4_transition_end_text: true
+        cluster_4_transition_start: true
+        cluster_5_full: true
+        cluster_5_id: true
+        cluster_5_optimal: true
+        cluster_5_pose_ids: true
+        cluster_5_return_path: true
+        cluster_5_transition_end: true
+        cluster_5_transition_end_text: true
+        cluster_5_transition_start: true
+        cluster_6_full: true
+        cluster_6_id: true
+        cluster_6_optimal: true
+        cluster_6_pose_ids: true
+        cluster_6_return_path: true
+        cluster_6_transition_end: true
+        cluster_6_transition_end_text: true
+        cluster_6_transition_start: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/trajectory_markers
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.5
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: Goal Poses
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/drone_poses
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -246,25 +346,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 27.678197860717773
+      Distance: 48.85554122924805
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 12.221517562866211
-        Y: 12.721468925476074
-        Z: 4.122254848480225
+        X: 12.504437446594238
+        Y: -0.7132568359375
+        Z: 5.164006233215332
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: -0.0946015864610672
+      Pitch: 0.515398383140564
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.068584442138672
+      Yaw: 3.4485747814178467
     Saved: ~
 Window Geometry:
   CF_1:
