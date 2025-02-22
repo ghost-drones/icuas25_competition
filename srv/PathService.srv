@@ -1,0 +1,5 @@
+geometry_msgs/Point origin
+geometry_msgs/Point destination
+geometry_msgs/Point support
+---
+geometry_msgs/Point path
