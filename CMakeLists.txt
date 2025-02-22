@@ -56,6 +56,17 @@ ament_target_dependencies(hotspots
   icuas25_msgs
 )
 
+
+add_executable(path_planner src/path_planner.cpp)
+ament_target_dependencies(path_planner
+  rclcpp
+  geometry_msgs
+  octomap_msgs
+  icuas25_msgs
+  octomap
+  octomap_msgs
+)
+
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
@@ -68,6 +79,8 @@ install(TARGETS hotspots
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(TARGETS path_planner
+  DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/TransformWorld2Odom.py
