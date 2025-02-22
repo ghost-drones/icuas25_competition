@@ -88,6 +88,12 @@ public:
 private:
   void octomapCallback(const octomap_msgs::msg::Octomap::SharedPtr msg)
   {
+    // Executa o processamento apenas uma vez.
+    if (executed_) {
+      return;
+    }
+    executed_ = true;
+
     // Converte a mensagem para um octomap::OcTree
     std::shared_ptr<octomap::OcTree> tree(
       dynamic_cast<octomap::OcTree*>(octomap_msgs::fullMsgToMap(*msg))
@@ -322,9 +328,12 @@ private:
         pose_array.poses.push_back(pose);
       }
 
-    // Publica as poses filtradas
-    pose_pub_->publish(pose_array);
-  }
+      // Publica as poses filtradas para a camada atual
+      pose_pub_->publish(pose_array);
+    }
+
+    // Após processar o primeiro Octomap, finaliza a execução do nó.
+    rclcpp::shutdown();
   }
   
   // Parâmetros configuráveis
@@ -334,6 +343,9 @@ private:
   double min_pose_distance_;
   double tol_factor_;
   double distance_origin_;
+
+  // Flag para garantir que o processamento ocorra apenas uma vez
+  bool executed_ = false;
   
   rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_pub_;

@@ -89,15 +89,11 @@ private:
                              end, true, rl);
   }
 
-  // NOVA FUNÇÃO: Verifica LOS entre dois pontos e, adicionalmente, testa pontos intermediários
-  // para garantir que cada ponto no caminho possui LOS com o hotspot associado ao cluster.
+  // Função que verifica LOS entre dois pontos e testa pontos intermediários
   bool freeLOSWithHotspot(const Vector3 &hotspot, const Vector3 &a, const Vector3 &b, octomap::OcTree* octree, double d0) {
-    // Primeiro, verifica a LOS direta entre os dois pontos.
     if (!freeLOS(a, b, octree, d0))
       return false;
-    // Define o número de pontos intermediários a serem amostrados.
     const int num_samples = 10;
-    // Testa pontos intermediários (excluindo os extremos, que já foram verificados)
     for (int i = 1; i < num_samples; i++) {
       double t = static_cast<double>(i) / static_cast<double>(num_samples);
       Vector3 p = a + (b - a) * t;
@@ -112,7 +108,6 @@ private:
   }
   
   void octomapCallback(const octomap_msgs::msg::Octomap::SharedPtr msg) {
-    // Converte a mensagem em octree
     octomap::AbstractOcTree* tree = octomap_msgs::fullMsgToMap(*msg);
     if(!tree)
       return;
@@ -170,34 +165,31 @@ private:
       return;
     }
     
-    // ****************************
     // PROCESSAMENTO GLOBAL DE POSES
-    // ****************************
-    // Armazena todas as poses e inicializa "connected" e "poseDegrees"
     std::vector<Vector3> allPoses;
-    std::vector<geometry_msgs::msg::Pose> allPosesFull; // Armazena a pose completa (posição + orientação)
+    std::vector<geometry_msgs::msg::Pose> allPosesFull;
     std::vector<bool> connected;
-    std::vector<int> poseDegrees; // -1 indica não conectado
+    std::vector<int> poseDegrees;
     for(auto &p: latest_drone_poses_->poses) {
       Vector3 pos(p.position.x, p.position.y, p.position.z);
       allPoses.push_back(pos);
-      allPosesFull.push_back(p); // Usa a orientação conforme recebido
+      allPosesFull.push_back(p);
       connected.push_back(false);
       poseDegrees.push_back(-1);
     }
     
-    // Vetores para armazenar o nó "pai" de cada pose e marcar se ela foi usada para expandir (transition point)
+    // Armazena o índice do nó pai e se foi usado para expandir (transition point)
     std::vector<int> parent_index(allPoses.size(), -1);
     std::vector<bool> is_transition(allPoses.size(), false);
     
-    // Vetor para armazenar as informações dos hotspots/subhotspots
+    // Armazena informações dos hotspots/subhotspots
     std::vector<HotspotInfo> hotspotInfos;
     
-    // 1. Cria o hotspot inicial na origem (0,0,0) e conecta todas as poses que estejam a <= d0 e com LOS
+    // 1. Cria o hotspot inicial na origem e conecta poses com LOS e distância <= d0
     Vector3 rootHotspot(0,0,0);
     HotspotInfo rootInfo;
     rootInfo.center = rootHotspot;
-    rootInfo.degree = 0; // raiz
+    rootInfo.degree = 0;
     visualization_msgs::msg::Marker initRel;
     initRel.header.frame_id = msg->header.frame_id;
     initRel.header.stamp = this->now();
@@ -206,15 +198,13 @@ private:
     initRel.type = visualization_msgs::msg::Marker::LINE_LIST;
     initRel.action = visualization_msgs::msg::Marker::ADD;
     initRel.scale.x = 0.1;
-    // Cor para a conexão inicial (por exemplo, amarelo)
     initRel.color.r = 1.0; initRel.color.g = 1.0; initRel.color.b = 0.0; initRel.color.a = 1.0;
     
     for (size_t i = 0; i < allPoses.size(); i++){
       if ((allPoses[i] - rootHotspot).norm() <= d0 && 
           freeLOS(rootHotspot, allPoses[i], octree, d0)) {
         connected[i] = true;
-        poseDegrees[i] = 1; // Conexões diretas da raiz terão grau 1
-        // Conexão direta da raiz: não há pai (representado por -1)
+        poseDegrees[i] = 1;
         parent_index[i] = -1;
         rootInfo.connected.push_back(allPoses[i]);
         geometry_msgs::msg::Point p1, p2;
@@ -230,15 +220,13 @@ private:
     }
     hotspotInfos.push_back(rootInfo);
     
-    // 2. Expansão iterativa de subhotspots:
-    //    Prioriza a expansão a partir dos nós com menor grau.
+    // 2. Expansão iterativa de subhotspots (transition points)
     bool progress = true;
     while(progress) {
       progress = false;
       int candidateIndex = -1;
       int bestCount = -1;
       int minDegree = std::numeric_limits<int>::max();
-      // Primeiro, determina o menor grau entre os nós conectados que podem conectar outros
       for (size_t i = 0; i < allPoses.size(); i++){
         if (connected[i]) {
           int cnt = 0;
@@ -251,7 +239,6 @@ private:
             minDegree = poseDegrees[i];
         }
       }
-      // Entre os nós com o grau mínimo, escolhe o que maximiza as conexões possíveis
       for (size_t i = 0; i < allPoses.size(); i++){
         if (connected[i] && poseDegrees[i] == minDegree) {
           int cnt = 0;
@@ -271,9 +258,8 @@ private:
         break;
       
       Vector3 subhot = allPoses[candidateIndex];
-      // Marca o nó candidato como transition point (hotspot) para iniciar um cluster
       is_transition[candidateIndex] = true;
-      std::vector<Vector3> newConnected; // novas conexões deste subhotspot
+      std::vector<Vector3> newConnected;
       
       visualization_msgs::msg::Marker subRel;
       subRel.header.frame_id = msg->header.frame_id;
@@ -283,7 +269,6 @@ private:
       subRel.type = visualization_msgs::msg::Marker::LINE_LIST;
       subRel.action = visualization_msgs::msg::Marker::ADD;
       subRel.scale.x = 0.1;
-      // Se o grau do candidato for > 1, usa cor ciano; caso contrário, magenta.
       if(poseDegrees[candidateIndex] > 1) {
         subRel.color.r = 0.0; subRel.color.g = 1.0; subRel.color.b = 1.0; subRel.color.a = 1.0;
       } else {
@@ -300,7 +285,6 @@ private:
           subRel.points.push_back(p2);
           connected[j] = true;
           poseDegrees[j] = poseDegrees[candidateIndex] + 1;
-          // Registra o nó pai de j (ligação com o transition point)
           parent_index[j] = candidateIndex;
           newConnected.push_back(allPoses[j]);
           progress = true;
@@ -310,7 +294,6 @@ private:
         subRel.lifetime = rclcpp::Duration::from_seconds(0);
         ma.markers.push_back(subRel);
       }
-      // Registra este subhotspot se houve novas conexões
       if(!newConnected.empty()){
         HotspotInfo info;
         info.center = subhot;
@@ -320,8 +303,7 @@ private:
       }
     }
     
-    // ************* CÁLCULOS PARA CLUSTERIZAÇÃO E WAYPOINTS *************
-    // 1. Calcula a "order" de cada pose (número de transition points na cadeia até a origem)
+    // 3. Calcula a "order" de cada pose (número de transition points na cadeia até a origem)
     std::vector<int> orders(allPoses.size(), 0);
     for (size_t i = 0; i < allPoses.size(); i++){
       int order_count = 0;
@@ -334,13 +316,11 @@ private:
       orders[i] = order_count;
     }
     
-    // 2. Determina o cluster de cada pose.
-    // A ideia: se uma pose tem linha-de-visada com um ou mais transition points (hotspots)
-    // que possuem grau menor que ela, ela se associa ao que tem o maior grau (prioridade).
-    std::map<int, int> trans_cluster_map; // mapeia índice do transition point para cluster_id
+    // 4. Determina o cluster de cada pose usando a mesma lógica da visualização.
+    // O cluster_id dos hotspots é atribuído via trans_cluster_map e para os demais é herdado do hotspot pai.
+    std::map<int, int> trans_cluster_map;
     int next_cluster_id = 1;
-    std::vector<int> cluster_ids(allPoses.size(), 0); // 0 indica cluster base
-    // Primeiro, atribui um novo cluster_id para cada transition point
+    std::vector<int> cluster_ids(allPoses.size(), 0); // 0 para o cluster base
     for (size_t i = 0; i < allPoses.size(); i++){
       if(is_transition[i]){
         trans_cluster_map[i] = next_cluster_id;
@@ -348,8 +328,6 @@ private:
         next_cluster_id++;
       }
     }
-    // Para as poses que não são transition points, procura entre os transition points com LOS
-    // e com grau menor que o da pose, aquele com o maior grau.
     for (size_t i = 0; i < allPoses.size(); i++){
       if(!is_transition[i]){
         int best_candidate = -1;
@@ -367,16 +345,12 @@ private:
         if(best_candidate != -1)
           cluster_ids[i] = trans_cluster_map[best_candidate];
         else
-          cluster_ids[i] = 0; // se não houver, associa ao cluster base
+          cluster_ids[i] = 0;
       }
     }
     
-    // 3. Para cada pose, determina a lista de waypoints (ids) com os quais possui LOS dentro do mesmo cluster.
-    // Aqui, além de verificar a LOS entre os pontos, amostramos pontos ao longo do caminho e
-    // garantimos que estes pontos também tenham LOS com o hotspot do cluster.
+    // 5. Determina, para cada pose, a lista de waypoints com LOS dentro do mesmo cluster.
     std::vector<std::vector<int64_t>> cluster_los(allPoses.size());
-    // Cria um mapeamento de cluster para hotspot: para o cluster base usa-se a raiz, e para os demais,
-    // o hotspot é o transition point que originou o cluster.
     std::map<int, Vector3> cluster_hotspots;
     cluster_hotspots[0] = rootHotspot;
     for (size_t i = 0; i < allPoses.size(); i++){
@@ -397,28 +371,22 @@ private:
       }
     }
     
-    // 4. Preenche e publica a mensagem Waypoints.msg com os WaypointInfo.msg de todas as poses.
-    //    Aqui, utilizamos a orientação que veio na mensagem original, garantindo a consistência com os marcadores.
+    // 6. Preenche e publica a mensagem Waypoints.msg.
     icuas25_msgs::msg::Waypoints waypoints_msg;
     for (size_t i = 0; i < allPoses.size(); i++){
       icuas25_msgs::msg::WaypointInfo wp;
       wp.id = static_cast<int64_t>(i);
       wp.cluster_id = static_cast<int64_t>(cluster_ids[i]);
-      // Novo campo: atribui prev_cluster_id com base no nó pai
-      if (parent_index[i] != -1) {
-        wp.prev_cluster_id = static_cast<int64_t>(cluster_ids[parent_index[i]]);
-      } else {
-        wp.prev_cluster_id = 0;
-      }
+      // Usa o cluster_id do pai imediatamente, que é o mesmo utilizado na visualização
+      wp.prev_cluster_id = (parent_index[i] != -1) ? static_cast<int64_t>(cluster_ids[parent_index[i]]) : 0;
       wp.order = static_cast<int64_t>(orders[i]);
-      wp.pose = allPosesFull[i];  // Usa a pose completa, com orientação
+      wp.pose = allPosesFull[i];
       wp.cluster_los = cluster_los[i];
       wp.transition_point = is_transition[i];
       waypoints_msg.waypoints.push_back(wp);
     }
     waypoints_pub_->publish(waypoints_msg);
     
-    // 5. Publica os markers e libera a octree
     marker_array_pub_->publish(ma);
     delete octree;
   }
