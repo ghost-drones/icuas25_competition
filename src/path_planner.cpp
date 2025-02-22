@@ -24,7 +24,7 @@ public:
       std::bind(&PathPlanner::octomap_callback, this, _1));
 
     service_ = this->create_service<icuas25_msgs::srv::PathService>(
-      "plan_path",
+      "/ghost/path_planner",
       std::bind(&PathPlanner::handle_service, this, _1, _2));
 
     RCLCPP_INFO(this->get_logger(), "Path planning node initialized");
@@ -44,16 +44,16 @@ private:
     std::lock_guard<std::mutex> lock(octree_mutex_);
     
     try {
-        // Método correto para conversão de mensagem ROS para OcTree
-         std::shared_ptr<octomap::OcTree> octree_(
-            dynamic_cast<octomap::OcTree*>(
-              octomap_msgs::fullMsgToMap(*msg)
-            )
+        octree_ = std::shared_ptr<octomap::OcTree>(
+          dynamic_cast<octomap::OcTree*>(octomap_msgs::fullMsgToMap(*msg))
         );
 
         if(octree_){
             RCLCPP_DEBUG(this->get_logger(), "Octomap atualizado. Resolução: %.3f", 
                         octree_->getResolution());
+        }
+        else{
+          RCLCPP_ERROR(this->get_logger(), "Octomap NULO!!");
         }
     } 
     catch (const std::exception& e) {
