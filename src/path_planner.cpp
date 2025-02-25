@@ -6,6 +6,7 @@
 #include "octomap_msgs/msg/octomap.hpp"
 #include <octomap/octomap.h>
 #include <octomap/OcTree.h>
+#include <vector>
 
 #include <mutex>
 
@@ -16,7 +17,7 @@ class PathPlanner : public rclcpp::Node
 {
 public:
   PathPlanner()
-  : Node("path_planner"), support_radius_(5)
+  : Node("path_planner"), max_distance_(20.0)
   {
     // Inicialização dos membros da classe
     octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
@@ -37,7 +38,7 @@ private:
   
     std::mutex octree_mutex_;
     std::shared_ptr<octomap::OcTree> octree_;
-    const unsigned support_radius_;
+    const double max_distance_;
 
     void octomap_callback(const octomap_msgs::msg::Octomap::SharedPtr msg)
     {
@@ -109,14 +110,36 @@ private:
         int num_steps = std::ceil(dist / step_size);
         for (int i = 0; i <= num_steps; ++i)
         {
-        double t = static_cast<double>(i) / num_steps;
-        octomap::point3d pt = p1 * (1.0 - t) + p2 * t;
-        if (!isLineOfSightFree(support, pt))
-        {
-            return false;  // Algum ponto não está visível para o support
-        }
+            double t = static_cast<double>(i) / num_steps;
+            octomap::point3d pt = p1 * (1.0 - t) + p2 * t;
+            if (!isLineOfSightFree(support, pt))
+            {
+                return false;  // Algum ponto não está visível para o support
+            }
         }
         return true;
+    }
+    std::vector<octomap::point3d> generate_points_along_line(
+        const octomap::point3d& start, 
+        const octomap::point3d& end, 
+        double step_size)
+    {
+        std::vector<octomap::point3d> points;
+        octomap::point3d direction = end - start;
+        double distance = direction.norm();
+        
+        if (distance < 1e-6) {
+            points.push_back(start);
+            return points;
+        }
+        
+        direction = direction * (1.0 / distance); // Normaliza
+        
+        for (double t = 0.0; t <= (distance); t += step_size) {
+            points.push_back(start + direction * t);
+        }
+        
+        return points;
     }
     // --- Fim das funções auxiliares ---
 
@@ -139,20 +162,16 @@ private:
         octomap::point3d support_oct(request->support.x, request->support.y, request->support.z);
         
         // Parâmetros da busca
-        const unsigned step_voxel = 1;
         bool path_found = false;
-
-        double resolution = octree_->getResolution();
-        double max_distance = support_radius_ * resolution;
-        double step_size = step_voxel * resolution;
+        double step_size = octree_->getResolution();
 
         // Valida se origin e destination estão dentro do raio de atuação do support
-        if (origin_oct.distance(support_oct) > max_distance) {
-            RCLCPP_ERROR(this->get_logger(), "Origin fora da área do suporte!: %f", max_distance);
+        if (origin_oct.distance(support_oct) > max_distance_) {
+            RCLCPP_ERROR(this->get_logger(), "Origin fora da área do suporte!: %f", max_distance_);
             response->path = request->support;
             return;
         }
-        if (destination_oct.distance(support_oct) > max_distance) {
+        if (destination_oct.distance(support_oct) > max_distance_) {
             RCLCPP_ERROR(this->get_logger(), "Destination fora da área do suporte!");
             response->path = request->support;
             return;
@@ -172,20 +191,18 @@ private:
         // start kernel code 
 
         // Casos especiais: se origin ou destination coincidirem com support, retorna support
-        if ((origin_oct - support_oct).norm() < resolution || (destination_oct - support_oct).norm() < resolution) {
+        if (origin_oct.distance(support_oct) < step_size || destination_oct.distance(support_oct) < step_size) {
             best_point = support_oct;
             path_found = true;
         } else {
-            // Busca pelo best_point ao longo da reta entre origin e support
-            octomap::KeyRay ray;
-            octree_->computeRayKeys(origin_oct, support_oct, ray);
-            octomap::OcTreeKey support_key = octree_->coordToKey(support_oct);
 
-            for (const auto & key : ray) {
-                octomap::point3d candidate = octree_->keyToCoord(key);
-                
-                // Se o candidato for o próprio support, avalia a linha de visão entre support e destination
-                if (key == support_key) {
+            std::vector<octomap::point3d> points_list = generate_points_along_line(origin_oct, support_oct, step_size/2);
+            
+            for (const auto &candidate : points_list) {
+                RCLCPP_DEBUG(this->get_logger(), "candidate: %.2f %.2f %.2f", candidate.x(), candidate.y(), candidate.z());
+
+                //Se o candidato for o próprio support, avalia a linha de visão entre support e destination
+                if (candidate == support_oct) {
                     if (isLineOfSightFree(support_oct, destination_oct)) {
                         best_point = support_oct;
                         path_found = true;
@@ -194,26 +211,31 @@ private:
                 }
 
                 // Verifica se o caminho entre o candidato e o destination está livre de colisões
-                if (!isSegmentCollisionFree(candidate, destination_oct, step_size))
-                continue;
-            
-                // Verifica se todo o segmento candidato -> destination é visível a partir do support
-                if (!isSegmentVisibleFromSupport(candidate, destination_oct, support_oct, step_size))
+                if (!isSegmentCollisionFree(candidate, destination_oct, step_size)) {
+                    RCLCPP_DEBUG(this->get_logger(), "Colisão detectada de candidato para destino");
                     continue;
+                }
                 
-                // Se passar nas duas verificações, candidate é considerado válido
+                // Verifica se todo o segmento candidato -> destination é visível a partir do support
+                if (!isSegmentVisibleFromSupport(candidate, destination_oct, support_oct, step_size)) {
+                    RCLCPP_DEBUG(this->get_logger(), "Segmento não visível do support");
+                    continue;
+                }
+                
+                // Se passar nas verificações, candidate é considerado válido
                 best_point = candidate;
                 path_found = true;
-                break;
+                break; // Pára no primeiro candidato válido (mais próximo da origem)
             }
         }
+        // end kernel code
+        
         if (path_found) {
             response->path.x = best_point.x();
             response->path.y = best_point.y();
             response->path.z = best_point.z();
         } else {
             response->path = request->support;
-            RCLCPP_ERROR(this->get_logger(), "Não encontrado path adequado");
         }
     
     }
