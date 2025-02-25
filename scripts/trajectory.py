@@ -170,11 +170,28 @@ class TrajectoryBuilder(Node):
                             traj_ids = [wp.id for wp in cluster['trajectory']]
                             segments = split_list_equally(traj_ids, num_explorers)
                             segment_waypoints = segments[exploring_index]
+
+                    # Se segment_waypoints estiver vazio, utiliza o último id da lista
+                    if not segment_waypoints:
+                        if id_waypoints:
+                            last = id_waypoints[-1]
+                            # Se o último elemento for uma lista, pega o último id dessa lista (se houver)
+                            if isinstance(last, list):
+                                if last:
+                                    last = last[-1]
+                                else:
+                                    last = None
+                        else:
+                            last = None
+
+                        if last is not None:
+                            segment_waypoints = [last]
                     drone_waypoints.append(("E", segment_waypoints))
                     id_waypoints.append(segment_waypoints)
             decoded[drone_id] = drone_waypoints
             self.get_logger().info(f"Decoded waypoints for drone {drone_id}: {id_waypoints}")
         return decoded
+
 
     def get_waypoint_by_id(self, wp_id):
         """

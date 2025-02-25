@@ -216,62 +216,7 @@ Visualization Manager:
       Enabled: true
       Name: Trajectory
       Namespaces:
-        cluster_0_full: true
-        cluster_0_id: true
-        cluster_0_optimal: true
-        cluster_0_pose_ids: true
-        cluster_0_return_path: true
-        cluster_0_transition_end: true
-        cluster_0_transition_end_text: true
-        cluster_0_transition_start: true
-        cluster_1_full: true
-        cluster_1_id: true
-        cluster_1_optimal: true
-        cluster_1_pose_ids: true
-        cluster_1_return_path: true
-        cluster_1_transition_end: true
-        cluster_1_transition_end_text: true
-        cluster_1_transition_start: true
-        cluster_2_full: true
-        cluster_2_id: true
-        cluster_2_optimal: true
-        cluster_2_pose_ids: true
-        cluster_2_return_path: true
-        cluster_2_transition_end: true
-        cluster_2_transition_end_text: true
-        cluster_2_transition_start: true
-        cluster_3_full: true
-        cluster_3_id: true
-        cluster_3_optimal: true
-        cluster_3_pose_ids: true
-        cluster_3_return_path: true
-        cluster_3_transition_end: true
-        cluster_3_transition_end_text: true
-        cluster_3_transition_start: true
-        cluster_4_full: true
-        cluster_4_id: true
-        cluster_4_optimal: true
-        cluster_4_pose_ids: true
-        cluster_4_return_path: true
-        cluster_4_transition_end: true
-        cluster_4_transition_end_text: true
-        cluster_4_transition_start: true
-        cluster_5_full: true
-        cluster_5_id: true
-        cluster_5_optimal: true
-        cluster_5_pose_ids: true
-        cluster_5_return_path: true
-        cluster_5_transition_end: true
-        cluster_5_transition_end_text: true
-        cluster_5_transition_start: true
-        cluster_6_full: true
-        cluster_6_id: true
-        cluster_6_optimal: true
-        cluster_6_pose_ids: true
-        cluster_6_return_path: true
-        cluster_6_transition_end: true
-        cluster_6_transition_end_text: true
-        cluster_6_transition_start: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -285,7 +230,7 @@ Visualization Manager:
       Axes Radius: 0.10000000149011612
       Class: rviz_default_plugins/PoseArray
       Color: 255; 25; 0
-      Enabled: true
+      Enabled: false
       Head Length: 0.07000000029802322
       Head Radius: 0.029999999329447746
       Name: Goal Poses
@@ -299,7 +244,175 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /ghost/drone_poses
-      Value: true
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 25; 255; 0
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_0 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_0/trajectory_path
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 170; 0
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_1 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_1/trajectory_path
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 85; 127
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_2 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_2/trajectory_path
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 85; 127
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_3 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_3/trajectory_path
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 170; 127
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_4 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_4/trajectory_path
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 170; 0; 255
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_5 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_5/trajectory_path
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

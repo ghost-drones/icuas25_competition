@@ -12,19 +12,15 @@ class ManageTrajectoriesNode(Node):
         super().__init__('manage_trajectories_node')
         self.drone_ids = drone_ids
 
-        # Dicionários para armazenar os dados mais recentes de cada drone
         self.poses = {}
         self.batteries = {}
         self.trajectories = {}
 
-        # Configuração do QoS para garantir que sempre recebamos a mensagem mais recente
         qos_profile = QoSProfile(
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1,
             reliability=QoSReliabilityPolicy.RELIABLE
         )
-
-        # Criação dos subscribers para cada drone
         for drone_id in self.drone_ids:
             pose_topic = f'/cf_{drone_id}/pose'
             battery_topic = f'/cf_{drone_id}/battery_status'
@@ -66,10 +62,6 @@ class ManageTrajectoriesNode(Node):
         self.get_logger().debug(f'Nova trajetória codificada recebida do drone {drone_id}')
 
     def timer_callback(self):
-        # Aqui você pode implementar a lógica para:
-        # 1. Gerar pontos de destino para cada drone;
-        # 2. Verificar o status das baterias;
-        # 3. Decidir qual trajetória cada drone deve seguir.
         for drone_id in self.drone_ids:
             pose = self.get_latest_pose(drone_id)
             battery = self.get_latest_battery(drone_id)
@@ -77,10 +69,7 @@ class ManageTrajectoriesNode(Node):
             self.get_logger().debug(
                 f'Drone {drone_id}: Pose: {pose}, Bateria: {battery}, Trajetória: {trajectory}'
             )
-        # Exemplo: lógica de decisão (a ser implementada)
-        # ...
 
-    # Funções para retornar o dado mais atualizado
     def get_latest_pose(self, drone_id):
         return self.poses.get(drone_id)
 
