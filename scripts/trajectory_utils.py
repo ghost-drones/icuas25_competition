@@ -279,6 +279,8 @@ def decode_encoded_trajectories(encoded_trajs, clusters_data, num_robots):
     para cada drone.
     """
     decoded = {}
+    all_id_waypoints = {}  # Dicionário para armazenar os id_waypoints de cada drone
+    
     for drone_id, instructions in encoded_trajs.items():
         drone_waypoints = []
         id_waypoints = []
@@ -324,7 +326,9 @@ def decode_encoded_trajectories(encoded_trajs, clusters_data, num_robots):
                 drone_waypoints.append(("E", segment_waypoints))
                 id_waypoints.append(segment_waypoints)
         decoded[drone_id] = drone_waypoints
-    return decoded
+        all_id_waypoints[drone_id] = id_waypoints  # Armazena os ids deste drone
+        
+    return all_id_waypoints, decoded
 
 def create_path_msgs_from_decoded(decoded, clusters_data, frame_id="world"):
     """
