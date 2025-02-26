@@ -43,7 +43,7 @@ class TrajectoryBuilder(Node):
         # Cria um timer que chama 'timer_callback' a cada 1 segundo (1Hz)
         self.timer = self.create_timer(1.0, self.timer_callback)
 
-        self.get_logger().info('TrajectoryBuilder iniciado.')
+        self.get_logger().info('Starting TrajectoryBuilder.')
 
     def waypoints_callback(self, msg):
         if self.executed:
@@ -52,11 +52,11 @@ class TrajectoryBuilder(Node):
         num_robots = int(os.getenv("NUM_ROBOTS", "5"))
         self.clusters_data = process_clusters(msg, num_robots)
 
-        self.get_logger().info("Ordem de prioridade dos clusters:")
+        self.get_logger().info("Cluster Priority Order:")
         for idx, c in enumerate(self.clusters_data):
             self.get_logger().info(
-                f"{idx+1}º: Cluster {c['cluster_id']} | Drone Cap.: {c['drone_capacity']} | "
-                f"Conexões: {c['total_connections']} | Ordem: {c['order']}"
+                f"{idx+1}º: Cluster {c['cluster_id']} | Capacity: {c['drone_capacity']} | "
+                f"Connections: {c['total_connections']}"
             )
 
         # Cria os publishers para cada drone
@@ -77,13 +77,15 @@ class TrajectoryBuilder(Node):
                     clusters_info[cid] = {'prev_cluster_id': wp.prev_cluster_id, 'order': wp.order}
 
         macro_traj = generate_macro_trajectory(self.clusters_data, clusters_info)
-        self.get_logger().info(f"Macro trajetória: {macro_traj}")
+        #self.get_logger().info(f"Macro trajetória: {macro_traj}")
         cluster_orders = {cluster['cluster_id']: cluster['order'] for cluster in self.clusters_data}
         self.encoded_trajs = translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_robots, clusters_info)
 
         self.get_logger().info("Trajetória individual para cada drone:")
+
         for drone_id in sorted(self.encoded_trajs.keys()):
-            self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
+            #self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
+            self.get_logger().info(f"Drone {drone_id+1}: Trajectory Sent")
 
         # Publica as trajetórias codificadas (JSON) para cada drone (publicação única)
         for drone_id in range(num_robots):

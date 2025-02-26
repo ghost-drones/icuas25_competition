@@ -82,12 +82,12 @@ public:
     if (comm_range_env != nullptr) {
       try {
         distance_origin_ = std::stod(comm_range_env);
-        RCLCPP_INFO(this->get_logger(), "COMM_RANGE definido como: %.2f", distance_origin_);
+        RCLCPP_INFO(this->get_logger(), "COMM_RANGE value: %.2f", distance_origin_);
       } catch (const std::exception &e) {
-        RCLCPP_WARN(this->get_logger(), "Valor inválido em COMM_RANGE. Usando default: 20.0");
+        RCLCPP_WARN(this->get_logger(), "Invalid COMM_RANGE. Using default: 20.0");
       }
     } else {
-      RCLCPP_INFO(this->get_logger(), "COMM_RANGE não definido. Usando default: 20.0");
+      RCLCPP_INFO(this->get_logger(), "COMM_RANGE not published. Using default: 20.0");
     }
 
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
@@ -97,7 +97,7 @@ public:
 
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ghost/drone_poses", 1);
 
-    RCLCPP_INFO(this->get_logger(), "Nó territorial_waters_node iniciado!");
+    RCLCPP_INFO(this->get_logger(), "Starting Territorial Waters Node");
   }
 
 private:
@@ -114,7 +114,7 @@ private:
       dynamic_cast<octomap::OcTree*>(octomap_msgs::fullMsgToMap(*msg))
     );
     if (!tree) {
-      RCLCPP_ERROR(this->get_logger(), "Falha ao converter Octomap para OcTree");
+      RCLCPP_ERROR(this->get_logger(), "Failure converting Octomap to Octree");
       return;
     }
     double resolution = tree->getResolution();
@@ -300,7 +300,7 @@ private:
       }
 
       if (candidate_poses.empty()) {
-        RCLCPP_WARN(this->get_logger(), "Nenhum candidato encontrado na camada %d", layer);
+        RCLCPP_WARN(this->get_logger(), "No candidate on layer %d", layer);
         continue;
       }
 

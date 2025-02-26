@@ -83,12 +83,12 @@ public:
     if (comm_range_env != nullptr) {
       try {
         d0_ = std::stod(comm_range_env);
-        RCLCPP_INFO(this->get_logger(), "COMM_RANGE definido como: %.2f", d0_);
+        RCLCPP_INFO(this->get_logger(), "COMM_RANGE value: %.2f", d0_);
       } catch (const std::exception &e) {
-        RCLCPP_WARN(this->get_logger(), "Valor inválido em COMM_RANGE. Usando default: 20.0");
+        RCLCPP_WARN(this->get_logger(), "Invalid COMM_RANGE. Using default: 20.0");
       }
     } else {
-      RCLCPP_INFO(this->get_logger(), "COMM_RANGE não definido. Usando default: 20.0");
+      RCLCPP_INFO(this->get_logger(), "COMM_RANGE not published. Using default: 20.0");
     }
   }
   
@@ -131,12 +131,12 @@ private:
     try {
       octomap::AbstractOcTree* tree = octomap_msgs::fullMsgToMap(*msg);
       if(!tree) {
-        RCLCPP_ERROR(this->get_logger(), "Falha ao converter octomap para árvore.");
+        RCLCPP_ERROR(this->get_logger(), "Failure converting Octomap to Octree.");
         return;
       }
       octomap::OcTree* octree = dynamic_cast<octomap::OcTree*>(tree);
       if(!octree){ 
-        RCLCPP_ERROR(this->get_logger(), "Octree dinâmico falhou.");
+        RCLCPP_ERROR(this->get_logger(), "Octree dynamic failed.");
         delete tree; 
         return;
       }
@@ -467,7 +467,7 @@ private:
       delete octree;
     }
     catch(const std::exception &e) {
-      RCLCPP_ERROR(this->get_logger(), "Exceção na função octomapCallback: %s", e.what());
+      RCLCPP_ERROR(this->get_logger(), "Exception in function octomapCallback: %s", e.what());
     }
   }
   
