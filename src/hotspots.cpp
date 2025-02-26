@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>
 #include <cstdint>
+#include <cstdlib>    // Necessário para std::getenv
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -74,6 +75,21 @@ public:
     marker_array_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
       "/ghost/visualization_marker_array", 10);
     waypoints_pub_ = this->create_publisher<icuas25_msgs::msg::Waypoints>("/ghost/waypoints", 10);
+
+    // Valor padrão para d0_
+    d0_ = 20.0;
+    // Tenta atualizar d0_ a partir da variável de ambiente "COMM_RANGE"
+    const char* comm_range_env = std::getenv("COMM_RANGE");
+    if (comm_range_env != nullptr) {
+      try {
+        d0_ = std::stod(comm_range_env);
+        RCLCPP_INFO(this->get_logger(), "COMM_RANGE definido como: %.2f", d0_);
+      } catch (const std::exception &e) {
+        RCLCPP_WARN(this->get_logger(), "Valor inválido em COMM_RANGE. Usando default: 20.0");
+      }
+    } else {
+      RCLCPP_INFO(this->get_logger(), "COMM_RANGE não definido. Usando default: 20.0");
+    }
   }
   
 private:
@@ -112,7 +128,6 @@ private:
   
   // Callback principal que processa o octomap, calcula conexões e publica os waypoints e marcadores RViz
   void octomapCallback(const octomap_msgs::msg::Octomap::SharedPtr msg) {
-    // Envolvemos o processamento em try/catch para capturar eventuais exceções e evitar crashes.
     try {
       octomap::AbstractOcTree* tree = octomap_msgs::fullMsgToMap(*msg);
       if(!tree) {
@@ -140,8 +155,9 @@ private:
                                        Vector3(max_x, max_y, min_z), Vector3(max_x, max_y, max_z) };
       for(auto &c: corners)
         max_range = std::max(max_range, c.norm());
-      const double d0 = 20.0;
-      for(double r = d0; r <= max_range + d0; r += d0) {
+      
+      // Usa o valor de d0_ definido a partir da variável de ambiente
+      for(double r = d0_; r <= max_range + d0_; r += d0_) {
         visualization_msgs::msg::Marker m;
         m.header.frame_id = msg->header.frame_id;
         m.header.stamp = this->now();
@@ -195,7 +211,7 @@ private:
       // Armazena informações dos hotspots/subhotspots
       std::vector<HotspotInfo> hotspotInfos;
       
-      // 1. Cria o hotspot inicial na origem e conecta poses com LOS e distância <= d0
+      // 1. Cria o hotspot inicial na origem e conecta poses com LOS e distância <= d0_
       Vector3 rootHotspot(0,0,0);
       HotspotInfo rootInfo;
       rootInfo.center = rootHotspot;
@@ -211,8 +227,8 @@ private:
       initRel.color.r = 1.0; initRel.color.g = 1.0; initRel.color.b = 0.0; initRel.color.a = 1.0;
       
       for (size_t i = 0; i < allPoses.size(); i++){
-        if ((allPoses[i] - rootHotspot).norm() <= d0 && 
-            freeLOS(rootHotspot, allPoses[i], octree, d0)) {
+        if ((allPoses[i] - rootHotspot).norm() <= d0_ && 
+            freeLOS(rootHotspot, allPoses[i], octree, d0_)) {
           connected[i] = true;
           poseDegrees[i] = 1;
           parent_index[i] = -1;
@@ -241,8 +257,8 @@ private:
           if (connected[i]) {
             int cnt = 0;
             for (size_t j = 0; j < allPoses.size(); j++){
-              if (!connected[j] && ((allPoses[j] - allPoses[i]).norm() < d0) &&
-                  freeLOS(allPoses[i], allPoses[j], octree, d0))
+              if (!connected[j] && ((allPoses[j] - allPoses[i]).norm() < d0_) &&
+                  freeLOS(allPoses[i], allPoses[j], octree, d0_))
                 cnt++;
             }
             if (cnt > 0 && poseDegrees[i] < minDegree)
@@ -253,8 +269,8 @@ private:
           if (connected[i] && poseDegrees[i] == minDegree) {
             int cnt = 0;
             for (size_t j = 0; j < allPoses.size(); j++){
-              if (!connected[j] && ((allPoses[j] - allPoses[i]).norm() < d0) &&
-                  freeLOS(allPoses[i], allPoses[j], octree, d0))
+              if (!connected[j] && ((allPoses[j] - allPoses[i]).norm() < d0_) &&
+                  freeLOS(allPoses[i], allPoses[j], octree, d0_))
                 cnt++;
             }
             if (cnt > bestCount){
@@ -286,8 +302,8 @@ private:
         }
         
         for (size_t j = 0; j < allPoses.size(); j++){
-          if (!connected[j] && ((allPoses[j] - subhot).norm() < d0) &&
-              freeLOS(subhot, allPoses[j], octree, d0)) {
+          if (!connected[j] && ((allPoses[j] - subhot).norm() < d0_) &&
+              freeLOS(subhot, allPoses[j], octree, d0_)) {
             geometry_msgs::msg::Point p1, p2;
             p1.x = subhot.x; p1.y = subhot.y; p1.z = subhot.z;
             p2.x = allPoses[j].x; p2.y = allPoses[j].y; p2.z = allPoses[j].z;
@@ -344,7 +360,7 @@ private:
           int best_degree = -1;
           for (size_t j = 0; j < allPoses.size(); j++){
             if(is_transition[j] && (poseDegrees[j] < poseDegrees[i])) {
-              if(freeLOS(allPoses[j], allPoses[i], octree, d0)){
+              if(freeLOS(allPoses[j], allPoses[i], octree, d0_)){
                 if(poseDegrees[j] > best_degree){
                   best_degree = poseDegrees[j];
                   best_candidate = j;
@@ -374,7 +390,7 @@ private:
             continue;
           if(cluster_ids[i] == cluster_ids[j]){
             Vector3 hotspot = cluster_hotspots[cluster_ids[i]];
-            if(freeLOSWithHotspot(hotspot, allPoses[i], allPoses[j], octree, d0)){
+            if(freeLOSWithHotspot(hotspot, allPoses[i], allPoses[j], octree, d0_)){
               cluster_los[i].push_back(static_cast<int64_t>(j));
             }
           }
@@ -387,7 +403,6 @@ private:
         icuas25_msgs::msg::WaypointInfo wp;
         wp.id = static_cast<int64_t>(i);
         wp.cluster_id = static_cast<int64_t>(cluster_ids[i]);
-        // Usa o cluster_id do pai imediatamente, que é o mesmo utilizado na visualização
         wp.prev_cluster_id = (parent_index[i] != -1) ? static_cast<int64_t>(cluster_ids[parent_index[i]]) : 0;
         wp.order = static_cast<int64_t>(orders[i]);
         wp.pose = allPosesFull[i];
@@ -398,7 +413,6 @@ private:
       waypoints_pub_->publish(waypoints_msg);
       
       // 7. Cria marcadores do tipo TEXT_VIEW_FACING para exibir o ID de cada waypoint em RViz.
-      // Cada marcador é posicionado na pose do waypoint e mostra seu ID como texto.
       for (size_t i = 0; i < allPoses.size(); i++){
         visualization_msgs::msg::Marker text_marker;
         text_marker.header.frame_id = msg->header.frame_id;
@@ -407,7 +421,6 @@ private:
         text_marker.id = mid++; // Incrementa id para não conflitar com outros marcadores
         text_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
         text_marker.action = visualization_msgs::msg::Marker::ADD;
-        // Define a posição do marcador; aplica um offset em z para melhor visualização.
         text_marker.pose = allPosesFull[i];
         text_marker.pose.position.z += 0.5; // desloca 0.5m para cima
         text_marker.scale.z = 0.5; // tamanho do texto
@@ -415,16 +428,14 @@ private:
         text_marker.color.g = 1.0;
         text_marker.color.b = 1.0;
         text_marker.color.a = 1.0;
-        text_marker.text = std::to_string(i); // O ID do waypoint como string
+        text_marker.text = std::to_string(i);
         text_marker.lifetime = rclcpp::Duration::from_seconds(0);
         ma.markers.push_back(text_marker);
       }
       
       // 8. Cria marcadores do tipo TEXT_VIEW_FACING para exibir o Cluster ID nos hotspots dos clusters.
-      // Cada marcador é posicionado acima do ponto de transição (hotspot) do cluster.
       for (const auto& pair : cluster_hotspots) {
          int cluster_id = pair.first;
-         // Publica apenas para clusters não zero (cluster base não recebe marcador extra)
          if(cluster_id == 0)
            continue;
          Vector3 hotspot_pose = pair.second;
@@ -432,17 +443,16 @@ private:
          cluster_text_marker.header.frame_id = msg->header.frame_id;
          cluster_text_marker.header.stamp = this->now();
          cluster_text_marker.ns = "cluster_ids";
-         cluster_text_marker.id = mid++; // Garante id único
+         cluster_text_marker.id = mid++;
          cluster_text_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
          cluster_text_marker.action = visualization_msgs::msg::Marker::ADD;
-         // Posiciona o marcador com um offset maior em z para aparecer acima do marcador do waypoint
          geometry_msgs::msg::Pose cluster_pose;
          cluster_pose.position.x = hotspot_pose.x;
          cluster_pose.position.y = hotspot_pose.y;
          cluster_pose.position.z = hotspot_pose.z + 1.0; // desloca 1.0m para cima
-         cluster_pose.orientation.w = 1.0; // orientação identidade
+         cluster_pose.orientation.w = 1.0;
          cluster_text_marker.pose = cluster_pose;
-         cluster_text_marker.scale.z = 0.5; // tamanho do texto
+         cluster_text_marker.scale.z = 0.5;
          cluster_text_marker.color.r = 0.0;
          cluster_text_marker.color.g = 1.0;
          cluster_text_marker.color.b = 0.0;
@@ -452,7 +462,7 @@ private:
          ma.markers.push_back(cluster_text_marker);
       }
       
-      // Publica os marcadores RViz (contendo os alcances, relações, IDs dos waypoints e dos clusters)
+      // Publica os marcadores RViz
       marker_array_pub_->publish(ma);
       delete octree;
     }
@@ -466,6 +476,9 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_array_pub_;
   rclcpp::Publisher<icuas25_msgs::msg::Waypoints>::SharedPtr waypoints_pub_;
   geometry_msgs::msg::PoseArray::SharedPtr latest_drone_poses_;
+  
+  // Variável que define a distância de comunicação (d0) lida da variável de ambiente "COMM_RANGE"
+  double d0_;
 };
 
 int main(int argc, char** argv){

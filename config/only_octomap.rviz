@@ -101,18 +101,6 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /ghost/visualization_marker_array
       Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: false
-      Name: Trajectory
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /ghost/trajectory_markers
-      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path

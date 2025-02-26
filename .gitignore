@@ -1,2 +1,5 @@
+__pycache__/
+*.py[cod]
+
 startup/cache
 startup/.tmuxinator.yml

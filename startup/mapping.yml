@@ -16,4 +16,5 @@ windows:
       panes:
         - cd ../scripts/ && python3 trajectory.py
         - ros2 run icuas25_competition hotspots
-        - 
+        - ros2 run icuas25_competition path_planner
+        - ros2 topic echo /ghost/cf_0/trajectory_encoded

@@ -213,27 +213,145 @@ def translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_drones
     for instr in macro_traj:
         cluster_id = int(re.findall(r'\d+', instr)[0])
         chain = get_cluster_chain(cluster_id, clusters_info)
-
-        if instr.startswith("E"):
-            if cluster_id is not None and cluster_id in cluster_orders and cluster_orders[cluster_id] > 0:
-                order = cluster_orders[cluster_id]
-                for i in range(num_drones):
-                    if i < order:
-                        if (cluster_id != 0) and len(chain) > i+2:
-                            replaced = instr.replace(str(cluster_id), str(chain[i+1]))
-                            drone_trajs[i].append(replaced)
-                        else:
-                            drone_trajs[i].append("S" + str(cluster_id))
-                    else:
-                        drone_trajs[i].append(instr)
+        
+        for i in range(num_drones):
+            if cluster_id == 0:  # Se for o cluster da base
+                drone_trajs[i].append(instr)
+                continue
+            
+            if (len(chain) == 1) and i == 0 and instr.startswith("E"):  # Correção simples para clusters
+                replaced = instr.replace("E", "S")
+                drone_trajs[i].append(replaced)
+                continue
+            
+            if (len(chain) - i >= 2):  # O drone precisa permanecer como suporte
+                replaced = instr.replace(str(cluster_id), str(chain[len(chain) - i - 2]))
+                if instr.startswith("E"):
+                    replaced = replaced.replace("E", "S")
+                drone_trajs[i].append(replaced)
             else:
-                for i in range(num_drones):
-                    drone_trajs[i].append(instr)
-        else:
-            for i in range(num_drones):
-                if (cluster_id != 0) and len(chain) > i+2:
-                    replaced = instr.replace(str(cluster_id), str(chain[i+1]))
-                    drone_trajs[i].append(replaced)
-                else:
-                    drone_trajs[i].append(instr)
+                drone_trajs[i].append(instr)
+
     return drone_trajs
+
+def get_support_waypoint(clusters_data, cluster_id):
+    """
+    Retorna o id do waypoint de suporte do cluster.
+    Para o cluster 0, retorna 0.
+    """
+    if cluster_id == 0:
+        return 0
+    for cluster in clusters_data:
+        if cluster['cluster_id'] == cluster_id:
+            for wp in cluster['trajectory']:
+                if hasattr(wp, 'transition_point') and wp.transition_point:
+                    return wp.id
+    return None
+
+def get_cluster(clusters_data, cluster_id):
+    """Retorna os dados do cluster correspondente."""
+    for cluster in clusters_data:
+        if cluster['cluster_id'] == cluster_id:
+            return cluster
+    return None
+
+def get_waypoint_by_id(clusters_data, wp_id):
+    """
+    Retorna o waypoint (objeto) a partir do id.
+    Se wp_id for 0, retorna um waypoint dummy com pose (0,0,0).
+    """
+    if wp_id == 0:
+        dummy = PoseStamped()
+        dummy.pose = Pose()
+        dummy.pose.position.x = 0.0
+        dummy.pose.position.y = 0.0
+        dummy.pose.position.z = 0.0
+        return dummy
+    for cluster in clusters_data:
+        for wp in cluster['trajectory']:
+            if wp.id == wp_id:
+                return wp
+    return None
+
+def decode_encoded_trajectories(encoded_trajs, clusters_data, num_robots):
+    """
+    Decodifica as trajetórias codificadas para gerar uma lista de instruções (waypoints)
+    para cada drone.
+    """
+    decoded = {}
+    for drone_id, instructions in encoded_trajs.items():
+        drone_waypoints = []
+        id_waypoints = []
+        for instr in instructions:
+            if instr.startswith("RS"):
+                cluster_id = int(instr[2:])
+                support_id = get_support_waypoint(clusters_data, cluster_id)
+                drone_waypoints.append(("RS", support_id))
+                id_waypoints.append(support_id)
+            elif instr.startswith("IS"):
+                cluster_id = int(instr[2:])
+                support_id = get_support_waypoint(clusters_data, cluster_id)
+                drone_waypoints.append(("IS", support_id))
+                id_waypoints.append(support_id)
+            elif instr.startswith("S"):
+                cluster_id = int(instr[1:])
+                support_id = get_support_waypoint(clusters_data, cluster_id)
+                drone_waypoints.append(("S", support_id))
+                id_waypoints.append(support_id)
+            elif instr.startswith("E"):
+                cluster_id = int(instr[1:])
+                cluster = get_cluster(clusters_data, cluster_id)
+                if cluster is None:
+                    segment_waypoints = []
+                else:
+                    num_explorers = num_robots - cluster['order']
+                    exploring_index = drone_id - cluster['order']
+                    if exploring_index < 0 or exploring_index >= num_explorers:
+                        segment_waypoints = []
+                    else:
+                        traj_ids = [wp.id for wp in cluster['trajectory']]
+                        segments = split_list_equally(traj_ids, num_explorers)
+                        segment_waypoints = segments[exploring_index]
+                if not segment_waypoints:
+                    if id_waypoints:
+                        last = id_waypoints[-1]
+                        if isinstance(last, list):
+                            last = last[-1] if last else None
+                    else:
+                        last = None
+                    if last is not None:
+                        segment_waypoints = [last]
+                drone_waypoints.append(("E", segment_waypoints))
+                id_waypoints.append(segment_waypoints)
+        decoded[drone_id] = drone_waypoints
+    return decoded
+
+def create_path_msgs_from_decoded(decoded, clusters_data, frame_id="world"):
+    """
+    Cria mensagens do tipo Path para cada drone a partir do dicionário 'decoded'.
+    """
+    paths = {}
+    for drone_id, instructions in decoded.items():
+        path_msg = Path()
+        path_msg.header.frame_id = frame_id
+        path_msg.header.stamp = Clock().now().to_msg()
+        for typ, val in instructions:
+            if typ in ["RS", "IS", "S"]:
+                wp_obj = get_waypoint_by_id(clusters_data, val)
+                if wp_obj is not None:
+                    ps = PoseStamped()
+                    ps.header.frame_id = frame_id
+                    ps.header.stamp = Clock().now().to_msg()
+                    ps.pose = wp_obj.pose
+                    path_msg.poses.append(ps)
+            elif typ == "E":
+                for wp_id in val:
+                    wp_obj = get_waypoint_by_id(clusters_data, wp_id)
+                    if wp_obj is not None:
+                        ps = PoseStamped()
+                        ps.header.frame_id = frame_id
+                        ps.header.stamp = Clock().now().to_msg()
+                        ps.pose = wp_obj.pose
+                        path_msg.poses.append(ps)
+        paths[drone_id] = path_msg
+    return paths

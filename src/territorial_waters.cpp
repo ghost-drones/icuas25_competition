@@ -7,6 +7,7 @@
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <cstdlib>  // Necessário para std::getenv
 
 #include <queue>
 #include <vector>
@@ -73,7 +74,21 @@ public:
     territorial_distance_ = 3.0;   // distância desejada até o obstáculo
     min_pose_distance_    = 2.5;   // espaçamento mínimo entre poses
     tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
+
+    // Valor padrão para distance_origin_
     distance_origin_      = 20.0;
+    // Tenta atualizar distance_origin_ a partir da variável de ambiente "COMM_RANGE"
+    const char* comm_range_env = std::getenv("COMM_RANGE");
+    if (comm_range_env != nullptr) {
+      try {
+        distance_origin_ = std::stod(comm_range_env);
+        RCLCPP_INFO(this->get_logger(), "COMM_RANGE definido como: %.2f", distance_origin_);
+      } catch (const std::exception &e) {
+        RCLCPP_WARN(this->get_logger(), "Valor inválido em COMM_RANGE. Usando default: 20.0");
+      }
+    } else {
+      RCLCPP_INFO(this->get_logger(), "COMM_RANGE não definido. Usando default: 20.0");
+    }
 
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
       "/ghost/octomap", 1,
