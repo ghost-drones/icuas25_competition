@@ -32,7 +32,6 @@ class TrajectoryBuilder(Node):
         )
         self.drone_publishers = {}
         self.encoded_trajs = {}  # Trajetórias codificadas para cada drone
-        self.path_pub = self.create_publisher(Path, '/ghost/cluster_trajectory_path', 10)
         self.path_publishers = {}
         self.clusters_data = []  # Armazena os dados processados dos clusters
         
@@ -60,9 +59,9 @@ class TrajectoryBuilder(Node):
 
         # Cria os publishers para cada drone
         for drone_id in range(num_robots):
-            topic = f"/ghost/cf_{drone_id}/trajectory_encoded"
+            topic = f"/ghost/cf_{drone_id+1}/trajectory_encoded"
             self.drone_publishers[drone_id] = self.create_publisher(String, topic, 10)
-            topic_path = f"/ghost/cf_{drone_id}/trajectory_path"
+            topic_path = f"/ghost/cf_{drone_id+1}/trajectory_path"
             self.path_publishers[drone_id] = self.create_publisher(Path, topic_path, 10)
 
         # Criação do clusters_info a partir dos waypoints com atributo transition_point
@@ -80,7 +79,7 @@ class TrajectoryBuilder(Node):
 
         self.get_logger().info("Trajetória individual para cada drone:")
         for drone_id in sorted(self.encoded_trajs.keys()):
-            self.get_logger().info(f"Drone {drone_id}: {self.encoded_trajs[drone_id]}")
+            self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
 
         # Publica as trajetórias codificadas (JSON) para cada drone (mantém essa publicação única)
         for drone_id in range(num_robots):
@@ -92,13 +91,6 @@ class TrajectoryBuilder(Node):
         self.decoded_instructions = decode_encoded_trajectories(self.encoded_trajs, self.clusters_data, num_robots)
 
     def timer_callback(self):
-        # Publica a trajetória do cluster de maior prioridade (para visualização)
-        if self.clusters_data:
-            cluster = self.clusters_data[0]
-            path_msg = trajectory_to_path_msg(cluster['trajectory'], frame_id="world")
-            path_msg.header.stamp = Clock().now().to_msg()
-            self.path_pub.publish(path_msg)
-
         # Publica as trajetórias (Path) de cada drone, se os dados já tiverem sido calculados
         if self.decoded_instructions is not None:
             paths = create_path_msgs_from_decoded(self.decoded_instructions, self.clusters_data)

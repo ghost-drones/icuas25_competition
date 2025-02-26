@@ -60,13 +60,23 @@ Visualization Manager:
         All Enabled: true
         cf_1:
           Value: true
+        cf_1/camera_frame:
+          Value: true
         cf_2:
+          Value: true
+        cf_2/camera_frame:
           Value: true
         cf_3:
           Value: true
+        cf_3/camera_frame:
+          Value: true
         cf_4:
           Value: true
+        cf_4/camera_frame:
+          Value: true
         cf_5:
+          Value: true
+        cf_5/camera_frame:
           Value: true
         odom:
           Value: true
@@ -81,15 +91,20 @@ Visualization Manager:
         world:
           odom:
             cf_1:
-              {}
+              cf_1/camera_frame:
+                {}
             cf_2:
-              {}
+              cf_2/camera_frame:
+                {}
             cf_3:
-              {}
+              cf_3/camera_frame:
+                {}
             cf_4:
-              {}
+              cf_4/camera_frame:
+                {}
             cf_5:
-              {}
+              cf_5/camera_frame:
+                {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -212,25 +227,13 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /ghost/visualization_marker_array
       Value: false
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Trajectory
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /ghost/trajectory_markers
-      Value: true
     - Alpha: 1
       Arrow Length: 0.30000001192092896
       Axes Length: 0.5
       Axes Radius: 0.10000000149011612
       Class: rviz_default_plugins/PoseArray
       Color: 255; 25; 0
-      Enabled: false
+      Enabled: true
       Head Length: 0.07000000029802322
       Head Radius: 0.029999999329447746
       Name: Goal Poses
@@ -244,39 +247,11 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /ghost/drone_poses
-      Value: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
       Color: 25; 255; 0
-      Enabled: false
-      Head Diameter: 0.30000001192092896
-      Head Length: 0.20000000298023224
-      Length: 0.30000001192092896
-      Line Style: Lines
-      Line Width: 0.029999999329447746
-      Name: Cf_0 - Path
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Pose Color: 255; 85; 255
-      Pose Style: None
-      Radius: 0.029999999329447746
-      Shaft Diameter: 0.10000000149011612
-      Shaft Length: 0.10000000149011612
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /ghost/cf_0/trajectory_path
-      Value: false
-    - Alpha: 1
-      Buffer Length: 1
-      Class: rviz_default_plugins/Path
-      Color: 0; 170; 0
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -304,7 +279,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 0; 85; 127
+      Color: 0; 170; 0
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -332,7 +307,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 255; 85; 127
+      Color: 0; 85; 127
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -360,7 +335,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 255; 170; 127
+      Color: 255; 85; 127
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -388,7 +363,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 170; 0; 255
+      Color: 255; 170; 127
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -413,6 +388,47 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /ghost/cf_5/trajectory_path
       Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 170; 0; 255
+      Enabled: false
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Cf_6 - Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/cf_6/trajectory_path
+      Value: false
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Arucos Found
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ghost/visualization_aruco_markers
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

@@ -29,7 +29,7 @@ def main():
     cf1.goTo(pos_1, np.pi/2, 15.0)
     print("Go To 1")
 
-    timeHelper.sleep(18.0)
+    timeHelper.sleep(40.0)
 
     cf1.goTo(pos_2, np.pi/2, 15.0)
     print("Go To 2")
