@@ -11,15 +11,11 @@ windows:
         - waitForCfGazebo;sleep 5;bash ./generate_gazebo_bridge_yaml.sh $NUM_ROBOTS; ros2 launch icuas25_competition cf_velmux_launch.py
         - waitForCfGazebo;sleep 7;ros2 launch icuas25_competition aruco_recognition.launch.py
         - waitForCfGazebo;sleep 7;ros2 launch icuas25_competition octomap_server.launch.py
-  - backend_pane:
+  - solution:
       layout: tiled
       panes:
         - waitForCfGazebo;sleep 7;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
-        - waitForCfGazebo;sleep 8;ros2 run icuas25_competition territorial_waters
-        - waitForCfGazebo;sleep 8;ros2 run icuas25_competition hotspots
-  - ghost_pane:
-      layout: tiled
-      panes:
-        - waitForCfGazebo;sleep 8;cd ../scripts/ && python3 trajectory.py
-        - waitForCfGazebo;sleep 10;cd ../scripts/ && python3 manage_trajectories.py
-        - 
+        - waitForCfGazebo;sleep 7;ros2 run icuas25_competition territorial_waters
+        - waitForCfGazebo;sleep 7;ros2 run icuas25_competition hotspots
+        - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 trajectory.py
+        - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 manage_trajectories.py
