@@ -3,6 +3,8 @@ import os
 import math
 import rclpy
 import ast
+import numpy as np
+from copy import deepcopy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
@@ -31,7 +33,6 @@ class ManageSwarmNode(Node):
             reliability=QoSReliabilityPolicy.RELIABLE
         )
 
-        # Clientes dos serviços go_to e land
         self.go_to_clients = {}
         self.land_clients = {}
 
@@ -80,12 +81,10 @@ class ManageSwarmNode(Node):
 
             self.get_logger().info(f'Inscrito nos tópicos e serviços do drone {drone_id}')
 
-        # Estado de gerenciamento de trajetória (global para todos os drones)
-        self.current_step = 0  # índice do passo primário (elemento de trajectories_id)
-        # Se o passo for uma lista, indica o índice atual na sublista para cada drone.
+        self.current_step = 0
         self.current_substep = {drone_id: 0 for drone_id in self.drone_ids}
-        # Indica se o comando para o passo/subpasso atual já foi enviado.
         self.command_sent = {drone_id: False for drone_id in self.drone_ids}
+        self.avr_vel = 0.7
 
         hz = 10
         T = 1 / hz
@@ -117,6 +116,15 @@ class ManageSwarmNode(Node):
         # Converte quaternion para Euler (roll, pitch, yaw) em radianos
         _, _, yaw = euler_from_quaternion(quat)
         return yaw
+
+    def calc_duration(self, pos_1, pos_2):
+
+        pos_1 = np.array([pos_1.pose.position.x, pos_1.pose.position.y, pos_1.pose.position.z], dtype='float32')
+        pos_2 = np.array([pos_2.pose.position.x, pos_2.pose.position.y, pos_2.pose.position.z], dtype='float32')
+
+        duration = np.linalg.norm(pos_2 - pos_1) / self.avr_vel
+
+        return duration
 
     def send_go_to(self, drone_id, pose: PoseStamped, duration_sec, group_mask=0, relative=False):
         if drone_id not in self.go_to_clients:
@@ -159,7 +167,7 @@ class ManageSwarmNode(Node):
 
         client.call_async(request)
 
-    def is_pose_reached(self, current_pose: PoseStamped, target_pose: PoseStamped, tolerance=0.2) -> bool:
+    def is_pose_reached(self, current_pose: PoseStamped, target_pose: PoseStamped, tolerance=1.0) -> bool:
         dx = current_pose.pose.position.x - target_pose.pose.position.x
         dy = current_pose.pose.position.y - target_pose.pose.position.y
         dz = current_pose.pose.position.z - target_pose.pose.position.z
@@ -187,6 +195,18 @@ class ManageSwarmNode(Node):
             flat_index += 0
         return flat_index
 
+    def get_offset_for_drone(self, drone_id, sorted_primary, layer_gap=0.8):
+        """
+        Para drones que compartilham o mesmo waypoint primário simples,
+        distribui os destinos em camadas verticais. O drone com menor id (em sorted_primary)
+        não recebe offset; os demais terão seu destino elevado em z de forma incremental.
+        """
+        idx = sorted_primary.index(drone_id)
+        if idx == 0:
+            return (0.0, 0.0, 0.3)
+        else:
+            return (0.0, 0.0, 0.3 + idx * layer_gap)
+
     def timer_callback(self):
         # Verifica se os dados necessários já foram recebidos para TODOS os drones.
         for drone_id in self.drone_ids:
@@ -202,6 +222,14 @@ class ManageSwarmNode(Node):
             self.get_logger().info("Todas as trajetórias foram concluídas.")
             return
 
+        # Para comandos primários simples, determina quais drones compartilham o mesmo waypoint.
+        primary_drone_ids = []
+        for drone_id in self.drone_ids:
+            current_command = self.trajectories_id[drone_id][self.current_step]
+            if not isinstance(current_command, list):
+                primary_drone_ids.append(drone_id)
+        sorted_primary = sorted(primary_drone_ids) if primary_drone_ids else []
+
         finished_current_step = {}
 
         for drone_id in self.drone_ids:
@@ -212,21 +240,25 @@ class ManageSwarmNode(Node):
             if isinstance(current_command, list):
                 substep = self.current_substep[drone_id]
                 flat_index = self.get_flat_index(drone_id, self.current_step, substep)
+                # Para substeps, nenhum offset é aplicado.
+                target_pose = self.trajectories_path[drone_id][flat_index]
             else:
                 flat_index = self.get_flat_index(drone_id, self.current_step, 0)
+                target_pose = deepcopy(self.trajectories_path[drone_id][flat_index])
+                # Se o comando for primário e compartilhado, aplica offset vertical em camadas.
+                if drone_id in sorted_primary:
+                    offset = self.get_offset_for_drone(drone_id, sorted_primary)
+                    target_pose.pose.position.x += offset[0]
+                    target_pose.pose.position.y += offset[1]
+                    target_pose.pose.position.z += offset[2]
 
-            target_pose = self.trajectories_path[drone_id][flat_index]
-
-            # Envia o comando apenas se ainda não foi enviado
             if not self.command_sent[drone_id]:
-                self.send_go_to(drone_id, target_pose, duration_sec=20.0)
-                # Imprime a ação primária utilizando self.trajectories (string)
+                duration = self.calc_duration(self.poses[drone_id], target_pose)
+                self.send_go_to(drone_id, target_pose, duration_sec=duration)
                 self.command_sent[drone_id] = True
 
-            # Verifica se o drone alcançou o waypoint alvo
             if self.is_pose_reached(current_pose, target_pose):
                 if isinstance(current_command, list):
-                    # Para ações secundárias, cada drone avança para o próximo waypoint imediatamente.
                     if self.current_substep[drone_id] < len(current_command) - 1:
                         self.current_substep[drone_id] += 1
                         self.command_sent[drone_id] = False
@@ -238,7 +270,11 @@ class ManageSwarmNode(Node):
             else:
                 finished_current_step[drone_id] = False
 
-        # Para as ações primárias, aguarda que TODOS os drones tenham finalizado o passo
+            print("-------")
+            print("Drone Id: ", drone_id)
+            print("Current: ", current_command)
+            print("Reached: ", finished_current_step[drone_id])
+
         if all(finished_current_step.get(d, False) for d in self.drone_ids):
             self.get_logger().info(f"Passo {self.current_step} concluído para todos os drones.")
             self.current_step += 1

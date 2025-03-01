@@ -14,8 +14,11 @@ windows:
   - solution:
       layout: tiled
       panes:
-        - waitForCfGazebo;sleep 7;python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
+        - waitForCfGazebo;sleep 7;ros2 run icuas25_competition expand_octomap
         - waitForCfGazebo;sleep 7;ros2 run icuas25_competition territorial_waters
         - waitForCfGazebo;sleep 7;ros2 run icuas25_competition hotspots
         - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 trajectory.py
+  - solution2:
+      layout: tiled
+      panes:
         - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 manage_trajectories.py

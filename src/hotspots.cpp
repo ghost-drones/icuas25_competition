@@ -68,7 +68,7 @@ public:
   WifiRangeVisualizer(): Node("wifi_range_visualizer") {
     // Subscrição para octomap e poses dos drones
     octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
-      "/ghost/octomap", 10, std::bind(&WifiRangeVisualizer::octomapCallback, this, std::placeholders::_1));
+      "/ghost/octomap_inflated", 10, std::bind(&WifiRangeVisualizer::octomapCallback, this, std::placeholders::_1));
     drone_poses_sub_ = this->create_subscription<geometry_msgs::msg::PoseArray>(
       "/ghost/drone_poses", 10, std::bind(&WifiRangeVisualizer::dronePosesCallback, this, std::placeholders::_1));
     // Publicadores para os marcadores RViz e para os waypoints customizados
