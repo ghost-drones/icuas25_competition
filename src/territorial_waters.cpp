@@ -73,7 +73,6 @@ public:
     layer_margin_         = 5.0;   // margem e espaçamento da rede de marcadores
     territorial_distance_ = 3.0;   // distância desejada até o obstáculo
     min_pose_distance_    = 2.5;   // espaçamento mínimo entre poses
-    tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
 
     // Valor padrão para distance_origin_
     distance_origin_      = 20.0;
@@ -257,7 +256,7 @@ private:
       }
       
       // Seleciona células com distância próxima de territorial_distance_
-      double tol = tol_factor_ * resolution;
+      double tol = resolution;
       std::vector<geometry_msgs::msg::Pose> candidate_poses;
       
       for (int i = 0; i < grid_width; i++) {
@@ -356,7 +355,6 @@ private:
   double layer_margin_;
   double territorial_distance_;
   double min_pose_distance_;
-  double tol_factor_;
   double distance_origin_;
 
   // Flag para garantir que o processamento ocorra apenas uma vez

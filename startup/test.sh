@@ -16,4 +16,4 @@ SETUP_NAME=$1
 [ -z "$SETUP_NAME" ] && SETUP_NAME=_setup.sh 
 
 # start tmuxinator
-tmuxinator icuas_competition_example.yml setup_name=$SETUP_NAME 
+tmuxinator test.yml setup_name=$SETUP_NAME 

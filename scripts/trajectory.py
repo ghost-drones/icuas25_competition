@@ -84,7 +84,7 @@ class TrajectoryBuilder(Node):
         self.get_logger().info("Trajetória individual para cada drone:")
 
         for drone_id in sorted(self.encoded_trajs.keys()):
-            #self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
+            self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
             self.get_logger().info(f"Drone {drone_id+1}: Trajectory Sent")
 
         # Publica as trajetórias codificadas (JSON) para cada drone (publicação única)

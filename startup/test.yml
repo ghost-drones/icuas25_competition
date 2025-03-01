@@ -1,0 +1,19 @@
+name: icuas_competition_example
+root: ./
+startup_window: crazyflies_start
+pre_window: |
+  source <%= @settings["setup_name"] %>
+windows:
+  - crazyflies_start:
+      layout: tiled
+      panes:
+        - ros2 launch icuas25_competition octomap_server.launch.py
+        - python3 /root/CrazySim/ros2_ws/src/icuas25_competition/scripts/pub_occupancy.py
+        - ros2 run icuas25_competition path_planner
+  - topic_pane:
+      layout: tiled
+      panes:
+        - cd ../scripts/ && python3 trajectory.py
+        - cd ../scripts/ && python3 manage_trajectories.py
+        - ros2 run icuas25_competition hotspots
+        -

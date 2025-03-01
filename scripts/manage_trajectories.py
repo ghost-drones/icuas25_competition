@@ -25,12 +25,11 @@ class ManageSwarmNode(Node):
 
         self.poses = {}
         self.batteries = {}
-        self.trajectories = {}       # Primary action (string) for each drone
-        self.trajectories_id = {}    # Elements that determine the waypoints
-        self.trajectories_path = {}  # List of PoseStamped (waypoints)
-        self.base_position = np.array([0.0, 0.0, 0.0])  # Base position
+        self.trajectories = {}
+        self.trajectories_id = {}
+        self.trajectories_path = {}
+        self.base_position = np.array([0.0, 0.0, 0.0])
         self.battery_threshold = 20.0  # Battery threshold in percentage
-        self.avg_speed = 2.0  # Average speed of the drone in m/s
 
         # Charging parameters
         # Se leva 10 min pra carregar de de 0 a 90%, então o parâmetro abaixo seria igual a (10*60)/90 segundos 
@@ -105,28 +104,28 @@ class ManageSwarmNode(Node):
         self.timer = self.create_timer(T, self.timer_callback)
     
     def start_charging(self, drone_id):
-    """
-    Start the charging process for a drone.
-    """
-    if drone_id not in self.batteries:
-        self.get_logger().error(f"No battery data available for drone {drone_id}.")
-        return
+        """
+        Start the charging process for a drone.
+        """
+        if drone_id not in self.batteries:
+            self.get_logger().error(f"No battery data available for drone {drone_id}.")
+            return
 
-    current_battery = self.batteries[drone_id].percentage * 100  # Convert to percentage
-    if current_battery >= self.charging_target:
-        self.get_logger().info(f"Drone {drone_id} is already fully charged.")
-        self.proceed_with_trajectory(drone_id)
-        return
+        current_battery = self.batteries[drone_id].percentage * 100  # Convert to percentage
+        if current_battery >= self.charging_target:
+            self.get_logger().info(f"Drone {drone_id} is already fully charged.")
+            self.proceed_with_trajectory(drone_id)
+            return
 
-    # Calculate the time required to fully charge the battery
-    time_to_charge = (self.charging_target - current_battery) * self.charging_time_per_percentage
-    self.get_logger().info(f"Drone {drone_id} will be fully charged in {time_to_charge} seconds.")
+        # Calculate the time required to fully charge the battery
+        time_to_charge = (self.charging_target - current_battery) * self.charging_time_per_percentage
+        self.get_logger().info(f"Drone {drone_id} will be fully charged in {time_to_charge} seconds.")
 
-    # Set a timer to check the battery status after the charging time
-    self.charging_timers[drone_id] = self.create_timer(
-        time_to_charge,
-        lambda: self.check_battery_and_proceed(drone_id)
-    )
+        # Set a timer to check the battery status after the charging time
+        self.charging_timers[drone_id] = self.create_timer(
+            time_to_charge,
+            lambda: self.check_battery_and_proceed(drone_id)
+        )
 
     def check_battery_and_proceed(self, drone_id):
         """
@@ -324,17 +323,19 @@ class ManageSwarmNode(Node):
         else:
             return True  # Drone should return to base immediately
 
-    def get_offset_for_drone(self, drone_id, sorted_primary, layer_gap=0.8):
-        """
-        Para drones que compartilham o mesmo waypoint primário simples,
-        distribui os destinos em camadas verticais. O drone com menor id (em sorted_primary)
-        não recebe offset; os demais terão seu destino elevado em z de forma incremental.
-        """
+    def get_offset_for_drone(self, drone_id, sorted_primary, num_drones, circle_radius=0.5, layer_gap=0.8):
+
         idx = sorted_primary.index(drone_id)
-        if idx == 0:
-            return (0.0, 0.0, 0.3)
+
+        z_offset = 0.3 if idx == 0 else 0.3 + idx * layer_gap
+
+        if num_drones <= 1 or idx == 0:
+            return (0.0, 0.0, z_offset)
         else:
-            return (0.0, 0.0, 0.3 + idx * layer_gap)
+            angle = 2 * math.pi * (idx - 1) / (num_drones - 1)
+            x_offset = circle_radius * math.cos(angle)
+            y_offset = circle_radius * math.sin(angle)
+            return (x_offset, y_offset, z_offset)
 
     def timer_callback(self):
         # Check if the necessary data has been received for ALL drones.
@@ -345,6 +346,10 @@ class ManageSwarmNode(Node):
                 drone_id not in self.trajectories_id or 
                 drone_id not in self.trajectories_path):
                 return
+
+        #for i in self.trajectories_id:
+        #    if not isinstance(i, list):
+
 
         total_steps = len(self.trajectories_id[self.drone_ids[0]])
         if self.current_step >= total_steps:
@@ -366,17 +371,17 @@ class ManageSwarmNode(Node):
             current_command = steps[self.current_step]
             current_pose = self.poses[drone_id]
 
-            if isinstance(current_command, list):
+            if isinstance(current_command, list): # Verifica se é exploração
                 substep = self.current_substep[drone_id]
                 flat_index = self.get_flat_index(drone_id, self.current_step, substep)
                 # Para substeps, nenhum offset é aplicado.
                 target_pose = self.trajectories_path[drone_id][flat_index]
-            else:
+            else: # Ida ao suporte
                 flat_index = self.get_flat_index(drone_id, self.current_step, 0)
                 target_pose = deepcopy(self.trajectories_path[drone_id][flat_index])
                 # Se o comando for primário e compartilhado, aplica offset vertical em camadas.
                 if drone_id in sorted_primary:
-                    offset = self.get_offset_for_drone(drone_id, sorted_primary)
+                    offset = self.get_offset_for_drone(drone_id, sorted_primary, len(self.drone_ids))
                     target_pose.pose.position.x += offset[0]
                     target_pose.pose.position.y += offset[1]
                     target_pose.pose.position.z += offset[2]
