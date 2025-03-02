@@ -227,19 +227,17 @@ private:
                 path_found = true;
                 break; // Pára no primeiro candidato válido (mais próximo da origem)
             }
+            // end kernel code
+            
+            if (path_found) {
+                response->path.x = best_point.x();
+                response->path.y = best_point.y();
+                response->path.z = best_point.z();
+            } else {
+                response->path = request->support;
+            }
         }
-        // end kernel code
-        
-        if (path_found) {
-            response->path.x = best_point.x();
-            response->path.y = best_point.y();
-            response->path.z = best_point.z();
-        } else {
-            response->path = request->support;
-        }
-    
     }
-
 };
 
 int main(int argc, char** argv)
