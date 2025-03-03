@@ -17,7 +17,6 @@ from crazyflie_interfaces.srv import GoTo, Land, Takeoff
 from tf_transformations import euler_from_quaternion
 from icuas25_msgs.srv import PathService
 from trajectory_utils import process_clusters, get_waypoint_by_id
-import numpy as np
 from icuas25_msgs.msg import Waypoints
 
 class ManageSwarmNode(Node):
@@ -52,7 +51,7 @@ class ManageSwarmNode(Node):
 
         self.client_path_planner = self.create_client(PathService, '/ghost/path_planner')
         while not self.client_path_planner.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Service not available, waiting again...')
+            self.get_logger().info('Service /ghost/path_planner not available, waiting again...')
 
         self.subscription = self.create_subscription(
             Waypoints,
@@ -61,7 +60,13 @@ class ManageSwarmNode(Node):
             10
         )
 
+        self.save_first_value = {}
+        self.save_target_value = {}
+
         for drone_id in self.drone_ids:
+            self.save_first_value[drone_id] = None
+            self.save_target_value[drone_id] = None
+
             pose_topic = f'/cf_{drone_id}/pose'
             battery_topic = f'/cf_{drone_id}/battery_status'
             trajectory_topic = f'/ghost/cf_{drone_id}/trajectory_encoded'
@@ -111,11 +116,23 @@ class ManageSwarmNode(Node):
         self.current_step = 0
         self.current_substep = {drone_id: 0 for drone_id in self.drone_ids}
         self.command_sent = {drone_id: False for drone_id in self.drone_ids}
-        self.avr_vel = 1.2
+        self.avr_vel = 1.1
 
         self.initial_takeoff = True
-        self.layer_gap = 0.8
+        self.layer_gap = 0.8  # Agora este valor é usado para definir o offset fixo em z
         self.takeoff_targets = {}
+
+        # Dicionário para armazenar offsets fixos para cada drone
+        self.fixed_offsets = {}
+
+        # Atributo para gerenciar o delay pós-takeoff
+        self.takeoff_done_time = None
+
+        origin = Point(x=-1.0, y=-1.0, z=-1.0)
+
+        # Variável para armazenar a resposta do ghost/path_planner
+        self.path_response = None
+        self.request_traverse_origin(origin, origin, origin)
 
         hz = 10
         T = 1 / hz
@@ -126,9 +143,6 @@ class ManageSwarmNode(Node):
         self.clusters_data = process_clusters(msg, num_robots)
 
     def send_takeoff(self, drone_id, height, duration_sec, group_mask=0):
-        """
-        Envia uma requisição para o serviço de takeoff do drone.
-        """
         if drone_id not in self.takeoff_clients:
             self.get_logger().error(f'Takeoff client not found for drone {drone_id}')
             return
@@ -145,57 +159,6 @@ class ManageSwarmNode(Node):
         request.duration.nanosec = int((duration_sec - int(duration_sec)) * 1e9)
 
         client.call_async(request)
-
-    def start_charging(self, drone_id):
-        if drone_id not in self.batteries:
-            self.get_logger().error(f"No battery data available for drone {drone_id}.")
-            return
-
-        current_battery = self.batteries[drone_id].percentage * 100
-        if current_battery >= self.charging_target:
-            self.get_logger().info(f"Drone {drone_id} is already fully charged.")
-            self.proceed_with_trajectory(drone_id)
-            return
-
-        time_to_charge = (self.charging_target - current_battery) * self.charging_time_per_percentage
-        self.get_logger().info(f"Drone {drone_id} will be fully charged in {time_to_charge} seconds.")
-
-        self.charging_timers[drone_id] = self.create_timer(
-            time_to_charge,
-            lambda: self.check_battery_and_proceed(drone_id)
-        )
-
-    def check_battery_and_proceed(self, drone_id):
-        if drone_id not in self.batteries:
-            self.get_logger().error(f"No battery data available for drone {drone_id}.")
-            return
-
-        current_battery = self.batteries[drone_id].percentage * 100
-        if current_battery >= self.charging_target:
-            self.get_logger().info(f"Drone {drone_id} is fully charged. Proceeding with the trajectory.")
-            self.proceed_with_trajectory(drone_id)
-        else:
-            self.get_logger().info(f"Drone {drone_id} is not fully charged. Continuing to charge.")
-            self.start_charging(drone_id)
-
-    def proceed_with_trajectory(self, drone_id):
-        if drone_id not in self.trajectories_path:
-            self.get_logger().error(f"No trajectory data available for drone {drone_id}.")
-            return
-
-        if self.charging_timers[drone_id]:
-            self.charging_timers[drone_id].cancel()
-            self.charging_timers[drone_id] = None
-
-        if self.pending_trajectories[drone_id] is not None:
-            self.get_logger().info(f"Drone {drone_id} is proceeding with its pending trajectory.")
-            self.trajectories_path[drone_id] = self.pending_trajectories[drone_id]
-            self.pending_trajectories[drone_id] = None
-            self.current_step = 0
-            self.current_substep[drone_id] = 0
-            self.command_sent[drone_id] = False
-        else:
-            self.get_logger().info(f"Drone {drone_id} has no pending trajectory.")
 
     def pose_callback(self, msg, drone_id):
         self.poses[drone_id] = msg
@@ -292,46 +255,6 @@ class ManageSwarmNode(Node):
             flat_index += 0
         return flat_index
 
-    def should_return_to_base(self, drone_id):
-        current_position = np.array([
-            self.poses[drone_id].pose.position.x,
-            self.poses[drone_id].pose.position.y,
-            self.poses[drone_id].pose.position.z
-        ])
-        waypoints = np.array([
-            [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
-            for pose in self.trajectories_path[drone_id]
-        ])
-        battery_percentage = self.batteries[drone_id].percentage * 100
-
-        total_distance = np.linalg.norm(current_position - waypoints[0]) + \
-                         sum(np.linalg.norm(waypoints[i+1] - waypoints[i]) for i in range(len(waypoints) - 1))
-        total_time = total_distance / self.avr_vel
-
-        battery_needed_for_trajectory = (total_time / (4/3)) * 10
-
-        return_distance = np.linalg.norm(waypoints[-1] - self.base_position)
-        return_time = return_distance / self.avr_vel
-        battery_needed_for_return = (return_time / (4/3)) * 10
-        
-        remaining_battery_after_trajectory = battery_percentage - battery_needed_for_trajectory
-
-        if remaining_battery_after_trajectory >= battery_needed_for_return + self.battery_threshold:
-            return False
-        else:
-            return True
-
-    def get_offset_for_drone(self, drone_id, sorted_primary, num_drones, circle_radius=0.5, layer_gap=0.8):
-        idx = sorted_primary.index(drone_id)
-        z_offset = 0.3 if idx == 0 else 0.3 + idx * layer_gap
-        if num_drones <= 1 or idx == 0:
-            return (0.0, 0.0, z_offset)
-        else:
-            angle = 2 * math.pi * (idx - 1) / (num_drones - 1)
-            x_offset = circle_radius * math.cos(angle)
-            y_offset = circle_radius * math.sin(angle)
-            return (x_offset, y_offset, z_offset)
-
     def extract_unique_ids(self, data):
         unique_ids = []
         for values in data.values():
@@ -341,17 +264,42 @@ class ManageSwarmNode(Node):
                         unique_ids.append(item)
         return unique_ids
 
+    def add_offset_2_pose(self, drone_id, target_pose):
+        # Calcula e armazena offsets fixos para cada drone (se ainda não calculados)
+        if drone_id not in self.fixed_offsets:
+            num_drones = len(self.drone_ids)
+            angle = 2 * math.pi * (drone_id - 1) / (num_drones - 1) if num_drones > 1 else 0.0
+            x_offset = 1.0 * math.cos(angle)
+            y_offset = 1.0 * math.sin(angle)
+            z_offset = drone_id * self.layer_gap
+
+            if drone_id == 1:
+                self.fixed_offsets[drone_id] = (0, 0, 0)
+            else:
+                self.fixed_offsets[drone_id] = (x_offset, y_offset, z_offset)
+        else:
+            x_offset, y_offset, z_offset = self.fixed_offsets[drone_id]
+        # Aplica os offsets fixos
+        target_pose.pose.position.x += x_offset
+        target_pose.pose.position.y += y_offset
+        target_pose.pose.position.z += z_offset
+        return target_pose
+    
     def request_traverse_origin(self, origin: Point, destination: Point, support: Point):
         request = PathService.Request()
         request.origin = Point(x=origin.x, y=origin.y, z=origin.z)
         request.destination = Point(x=destination.x, y=destination.y, z=destination.z)
         request.support = Point(x=support.x, y=support.y, z=support.z)
 
-        self.future = self.client_path_planner.call_async(request)
-        rclpy.spin_until_future_complete(self, self.future)
-
-        return self.future.result()
+        future = self.client_path_planner.call_async(request)
+        future.add_done_callback(self.handle_path_response)
     
+    def handle_path_response(self, future):
+        try:
+            self.path_response = future.result()
+        except Exception as e:
+            self.get_logger().error(f"Ghost/path_planner service call failed: {e}")
+
     def timer_callback(self):
         # Verifica se os dados necessários já foram recebidos para TODOS os drones.
         for drone_id in self.drone_ids:
@@ -361,6 +309,15 @@ class ManageSwarmNode(Node):
                 drone_id not in self.trajectories_id or 
                 drone_id not in self.trajectories_path):
                 return
+
+        # Se o takeoff já foi concluído, aguarda 3 segundos antes de processar o restante.
+        if self.takeoff_done_time is not None:
+            now = self.get_clock().now()
+            if (now - self.takeoff_done_time).nanoseconds / 1e9 < 3.0:
+                return  # Pula esta iteração até os 3 segundos passarem
+            else:
+                # Após 3 segundos, reseta o delay para continuar o processamento normalmente.
+                self.takeoff_done_time = None
 
         # FASE 1: Decolagem inicial para altitude de takeoff específica.
         if self.initial_takeoff:
@@ -379,26 +336,19 @@ class ManageSwarmNode(Node):
                 if not self.is_pose_reached(current_pose, target_pose):
                     all_reached = False
             if all_reached:
-                self.get_logger().info("Fase de decolagem concluída para todos os drones.")
+                self.get_logger().info("Fase de decolagem concluída para todos os drones. Aguardando 3 segundos...")
                 self.initial_takeoff = False
+                self.takeoff_done_time = self.get_clock().now()
                 for drone_id in self.drone_ids:
                     self.command_sent[drone_id] = False
-            else:
-                return  # Espera até que todos alcancem o alvo de takeoff
-
+                return  # Pula processamento adicional nesta iteração
+          
         # FASE 2: Processamento normal da trajetória
         unique_ids = self.extract_unique_ids(self.trajectories_id)
         total_steps = len(self.trajectories_id[self.drone_ids[0]])
         if self.current_step >= total_steps:
             self.get_logger().info("Todas as trajetórias foram completadas.")
             return
-
-        primary_drone_ids = []
-        for drone_id in self.drone_ids:
-            current_command = self.trajectories_id[drone_id][self.current_step]
-            if not isinstance(current_command, list):
-                primary_drone_ids.append(drone_id)
-        sorted_primary = sorted(primary_drone_ids) if primary_drone_ids else []
 
         finished_current_step = {}
 
@@ -408,35 +358,56 @@ class ManageSwarmNode(Node):
             future_command = steps[self.current_step+1]
             current_pose = self.poses[drone_id]
 
-            if isinstance(current_command, list):  # Ação secundária
+            # Se for ação secundária, verifica se o waypoint deve ser ignorado
+            if isinstance(current_command, list):
                 substep = self.current_substep[drone_id]
                 flat_index = self.get_flat_index(drone_id, self.current_step, substep)
                 if current_command[substep] in unique_ids:
+                    self.get_logger().info(f"Skipping waypoint {current_command[substep]} for drone {drone_id}")
+                    # Marca esse waypoint como concluído sem enviá-lo
+                    finished_current_step[drone_id] = True
+                    self.command_sent[drone_id] = True
                     if self.current_substep[drone_id] < len(current_command) - 1:
                         self.current_substep[drone_id] += 1
-                        self.command_sent[drone_id] = False
-                        finished_current_step[drone_id] = False
-                    else:
-                        finished_current_step[drone_id] = True
+                    target_pose = deepcopy(current_pose)
                 else:
                     target_pose = self.trajectories_path[drone_id][flat_index]
-            else:  # Comando primário
+            else:  # Comando primário (suporte)
                 flat_index = self.get_flat_index(drone_id, self.current_step, 0)
-                target_pose = deepcopy(self.trajectories_path[drone_id][flat_index])
+                if current_command == 0:  # Se for retorno à base (traverse_origin)
+                    if self.save_first_value[drone_id] is None:
+                        self.save_first_value[drone_id] = self.poses[drone_id].pose.position
+                    
+                    self.request_traverse_origin(
+                        origin=self.save_first_value[drone_id], 
+                        destination=get_waypoint_by_id(self.clusters_data, future_command).pose.position, 
+                        support=get_waypoint_by_id(self.clusters_data, current_command).pose.position
+                    )
 
-                if current_command == 0:
-                    intermediary = self.request_traverse_origin(origin=self.poses[drone_id].pose.position, destination=get_waypoint_by_id(self.clusters_data, future_command).pose.position, support=get_waypoint_by_id(self.clusters_data, current_command).pose.position)
-                    print(intermediary)
-                if drone_id in sorted_primary:
-                    offset = self.get_offset_for_drone(drone_id, sorted_primary, len(self.drone_ids))
-                    target_pose.pose.position.x += offset[0]
-                    target_pose.pose.position.y += offset[1]
-                    target_pose.pose.position.z += offset[2]
+                    if self.path_response.path == Point(x=-1.0, y=-1.0, z=-1.0):
+                        return
+
+                    if not self.command_sent[drone_id]:
+                        target_pose = PoseStamped()
+                        target_pose.pose.position = deepcopy(self.path_response.path)
+                        target_pose = self.add_offset_2_pose(drone_id, target_pose)
+                else:  # Se não for retorno à base, continua normalmente e adiciona offset
+                    self.save_first_value[drone_id] = None
+                    target_pose = deepcopy(self.trajectories_path[drone_id][flat_index])
+                    target_pose = self.add_offset_2_pose(drone_id, target_pose)
 
             if not self.command_sent[drone_id]:
                 duration = self.calc_duration(self.poses[drone_id], target_pose)
                 self.send_go_to(drone_id, target_pose, duration_sec=duration)
                 self.command_sent[drone_id] = True
+
+                if current_command == 0:
+                    self.save_target_value[drone_id] = deepcopy(target_pose)
+                else:
+                    self.save_target_value[drone_id] = Point(x=0.0, y=0.0, z=0.0)
+            
+            if current_command == 0:
+                target_pose = deepcopy(self.save_target_value[drone_id])
 
             if self.is_pose_reached(current_pose, target_pose):
                 if isinstance(current_command, list):
@@ -451,12 +422,9 @@ class ManageSwarmNode(Node):
             else:
                 finished_current_step[drone_id] = False
 
-
             print("-------")
             print("Drone Id: ", drone_id)
             print("Current: ", current_command)
-            if isinstance(current_command, list):
-                print("Step: ", current_command[self.current_substep[drone_id]])
             print("Reached: ", finished_current_step[drone_id])
 
         if all(finished_current_step.get(d, False) for d in self.drone_ids):
