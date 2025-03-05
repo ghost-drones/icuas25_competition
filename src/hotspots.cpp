@@ -212,7 +212,7 @@ private:
       std::vector<HotspotInfo> hotspotInfos;
       
       // 1. Cria o hotspot inicial na origem e conecta poses com LOS e distância <= d0_
-      Vector3 rootHotspot(0,0,0);
+      Vector3 rootHotspot(0,0,1);
       HotspotInfo rootInfo;
       rootInfo.center = rootHotspot;
       rootInfo.degree = 0;

@@ -142,9 +142,12 @@ RUN VERSION="releases/mcap-cli/v0.0.50" && \
 
 #installing CrazySim
 WORKDIR $HOME
-RUN  git clone https://github.com/gtfactslab/CrazySim.git --recursive \
-    && cd $HOME/CrazySim/crazyflie-lib-python \
-    &&  pip install -e .
+RUN git clone https://github.com/gtfactslab/CrazySim.git --recursive\
+    && cd CrazySim \
+    && git checkout 8215637e4e2099fb74276c5ecf090e5729aa6c8c \
+    && git submodule update --init --recursive \
+    && cd crazyflie-lib-python \
+    && pip install -e .
 
 RUN pip install Jinja2
 RUN cd $HOME/CrazySim/crazyflie-firmware \

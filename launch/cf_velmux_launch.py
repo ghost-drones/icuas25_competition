@@ -39,13 +39,13 @@ def generate_launch_description():
             parameters=[server_params]
         ))
     
-    launch_description.append(
-        Node(
-           package='icuas25_competition',
-           executable='TransformWorld2Odom.py',
-           name='TransformWorld2Odom',
-           output='screen'
-       ))
+    # launch_description.append(
+    #     Node(
+    #        package='icuas25_competition',
+    #        executable='TransformWorld2Odom.py',
+    #        name='TransformWorld2Odom',
+    #        output='screen'
+    #    ))
     
     num_bots = int(os.environ.get('NUM_ROBOTS', '4'))
     launch_description.append(
