@@ -68,6 +68,9 @@ class TrajectoryBuilder(Node):
             topic_ids = f"/ghost/cf_{drone_id+1}/trajectory_ids"
             self.ids_publishers[drone_id] = self.create_publisher(String, topic_ids, 10)
 
+        topic_encoded = "/ghost/trajectory_encoded"
+        self.macro_traj_pub = self.create_publisher(String, topic_encoded, 10)
+
         # Criação do clusters_info a partir dos waypoints com atributo transition_point
         clusters_info = {0: {'prev_cluster_id': None, 'order': 0}}
         for wp in msg.waypoints:
@@ -76,9 +79,14 @@ class TrajectoryBuilder(Node):
                 if cid not in clusters_info:
                     clusters_info[cid] = {'prev_cluster_id': wp.prev_cluster_id, 'order': wp.order}
 
-        macro_traj = generate_macro_trajectory(self.clusters_data, clusters_info)
+        macro_traj = generate_macro_trajectory(self.clusters_data, clusters_info) # ["E0", "RS0", "IS2", "E2"]
+
+        #macro_traj = ["E0", "RS0",...]
+
         #self.get_logger().info(f"Macro trajetória: {macro_traj}")
         cluster_orders = {cluster['cluster_id']: cluster['order'] for cluster in self.clusters_data}
+
+        # ["E0", "RS0", "IS2", "S2"]
         self.encoded_trajs = translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_robots, clusters_info)
 
         self.get_logger().info("Trajetória individual para cada drone:")
@@ -87,15 +95,24 @@ class TrajectoryBuilder(Node):
             self.get_logger().info(f"Drone {drone_id+1}: {self.encoded_trajs[drone_id]}")
             self.get_logger().info(f"Drone {drone_id+1}: Trajectory Sent")
 
+        # Decodifica as trajetórias e armazena para publicação contínua pelo timer
+        self.id_waypoints, self.decoded_instructions = decode_encoded_trajectories(self.encoded_trajs, self.clusters_data, num_robots)
+        print(self.id_waypoints) # trajectory_ids!!!
+
+        # TODO
+        #self.id_waypoints, self.decoded_instructions  =  FUNC(self.id_waypoints, self.decoded_instructions)
+        #self.encoded_trajs = encoded_decode_trajectories(self.id_waypoints, self.decoded_instructions)
+
         # Publica as trajetórias codificadas (JSON) para cada drone (publicação única)
         for drone_id in range(num_robots):
             msg_str = String()
             msg_str.data = json.dumps(self.encoded_trajs[drone_id])
             self.drone_publishers[drone_id].publish(msg_str)
 
-        # Decodifica as trajetórias e armazena para publicação contínua pelo timer
-        self.id_waypoints, self.decoded_instructions = decode_encoded_trajectories(self.encoded_trajs, self.clusters_data, num_robots)
-        
+        msg_str = String()
+        msg_str.data = json.dumps(self.encoded_trajs[drone_id])
+        self.macro_traj_pub.publish(msg_str)
+
     def timer_callback(self):
         # Publica as trajetórias (Path) de cada drone, se os dados já tiverem sido calculados
         if self.decoded_instructions is not None:

@@ -18,7 +18,9 @@ windows:
         - waitForCfGazebo;sleep 7;ros2 run icuas25_competition territorial_waters
         - waitForCfGazebo;sleep 7;ros2 run icuas25_competition hotspots
         - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 trajectory.py
+        - waitForCfGazebo;sleep 8;ros2 run icuas25_competition path_planner
   - solution2:
       layout: tiled
       panes:
-        - waitForCfGazebo;sleep 7;cd ../scripts/ && python3 manage_trajectories.py
+        - ros2 launch icuas25_sm sm_launch.py #waitForCfGazebo;sleep 7;cd ../scripts/ && python3 manage_trajectories.py
+        - waitForCfGazebo;sleep 5;ros2 topic echo /ghost/debug --full-length
