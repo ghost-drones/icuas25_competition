@@ -7,6 +7,7 @@
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <cstdlib>  // Necessário para std::getenv
 
 #include <queue>
 #include <vector>
@@ -72,8 +73,21 @@ public:
     layer_margin_         = 5.0;   // margem e espaçamento da rede de marcadores
     territorial_distance_ = 3.0;   // distância desejada até o obstáculo
     min_pose_distance_    = 2.5;   // espaçamento mínimo entre poses
-    tol_factor_           = 1.0;   // tol = tol_factor_ * resolution
+
+    // Valor padrão para distance_origin_
     distance_origin_      = 20.0;
+    // Tenta atualizar distance_origin_ a partir da variável de ambiente "COMM_RANGE"
+    const char* comm_range_env = std::getenv("COMM_RANGE");
+    if (comm_range_env != nullptr) {
+      try {
+        distance_origin_ = std::stod(comm_range_env);
+        RCLCPP_INFO(this->get_logger(), "COMM_RANGE value: %.2f", distance_origin_);
+      } catch (const std::exception &e) {
+        RCLCPP_WARN(this->get_logger(), "Invalid COMM_RANGE. Using default: 20.0");
+      }
+    } else {
+      RCLCPP_INFO(this->get_logger(), "COMM_RANGE not published. Using default: 20.0");
+    }
 
     subscription_ = this->create_subscription<octomap_msgs::msg::Octomap>(
       "/ghost/octomap", 1,
@@ -82,18 +96,24 @@ public:
 
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ghost/drone_poses", 1);
 
-    RCLCPP_INFO(this->get_logger(), "Nó territorial_waters_node iniciado!");
+    RCLCPP_INFO(this->get_logger(), "Starting Territorial Waters Node");
   }
 
 private:
   void octomapCallback(const octomap_msgs::msg::Octomap::SharedPtr msg)
   {
+    // Executa o processamento apenas uma vez.
+    if (executed_) {
+      return;
+    }
+    executed_ = true;
+
     // Converte a mensagem para um octomap::OcTree
     std::shared_ptr<octomap::OcTree> tree(
       dynamic_cast<octomap::OcTree*>(octomap_msgs::fullMsgToMap(*msg))
     );
     if (!tree) {
-      RCLCPP_ERROR(this->get_logger(), "Falha ao converter Octomap para OcTree");
+      RCLCPP_ERROR(this->get_logger(), "Failure converting Octomap to Octree");
       return;
     }
     double resolution = tree->getResolution();
@@ -236,7 +256,7 @@ private:
       }
       
       // Seleciona células com distância próxima de territorial_distance_
-      double tol = tol_factor_ * resolution;
+      double tol = resolution;
       std::vector<geometry_msgs::msg::Pose> candidate_poses;
       
       for (int i = 0; i < grid_width; i++) {
@@ -279,7 +299,7 @@ private:
       }
 
       if (candidate_poses.empty()) {
-        RCLCPP_WARN(this->get_logger(), "Nenhum candidato encontrado na camada %d", layer);
+        RCLCPP_WARN(this->get_logger(), "No candidate on layer %d", layer);
         continue;
       }
 
@@ -322,9 +342,12 @@ private:
         pose_array.poses.push_back(pose);
       }
 
-    // Publica as poses filtradas
-    pose_pub_->publish(pose_array);
-  }
+      // Publica as poses filtradas para a camada atual
+      pose_pub_->publish(pose_array);
+    }
+
+    // Após processar o primeiro Octomap, finaliza a execução do nó.
+    rclcpp::shutdown();
   }
   
   // Parâmetros configuráveis
@@ -332,8 +355,10 @@ private:
   double layer_margin_;
   double territorial_distance_;
   double min_pose_distance_;
-  double tol_factor_;
   double distance_origin_;
+
+  // Flag para garantir que o processamento ocorra apenas uma vez
+  bool executed_ = false;
   
   rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr subscription_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_pub_;
