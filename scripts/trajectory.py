@@ -9,7 +9,14 @@ from std_msgs.msg import String
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, Pose
 from icuas25_msgs.msg import Waypoints
+from optimal_trajectory import compute_optimal_trajectory_mapping
+# para cada culster ele calcula a trajetoria ideal para um drone
+# parte de exploração
+# ele gera a lista do trajectory_ids
+# os suportes são da ordem de clusters
 
+# refatorar o código
+# ter acesso a mudar a prioridade dos clusters
 from trajectory_utils import (
     process_clusters,
     trajectory_to_path_msg,
@@ -81,6 +88,11 @@ class TrajectoryBuilder(Node):
         cluster_orders = {cluster['cluster_id']: cluster['order'] for cluster in self.clusters_data}
         self.encoded_trajs = translate_macro_to_drone_trajectories(macro_traj, cluster_orders, num_robots, clusters_info)
 
+        # Decodifica as trajetórias e armazena para publicação contínua pelo timer
+        self.id_waypoints, self.decoded_instructions = decode_encoded_trajectories(self.encoded_trajs, self.clusters_data, num_robots)
+        self.id_waypoints = compute_optimal_trajectory_mapping(self.id_waypoints,msg)
+        print(self.id_waypoints)
+        
         self.get_logger().info("Trajetória individual para cada drone:")
 
         for drone_id in sorted(self.encoded_trajs.keys()):
@@ -92,9 +104,6 @@ class TrajectoryBuilder(Node):
             msg_str = String()
             msg_str.data = json.dumps(self.encoded_trajs[drone_id])
             self.drone_publishers[drone_id].publish(msg_str)
-
-        # Decodifica as trajetórias e armazena para publicação contínua pelo timer
-        self.id_waypoints, self.decoded_instructions = decode_encoded_trajectories(self.encoded_trajs, self.clusters_data, num_robots)
         
     def timer_callback(self):
         # Publica as trajetórias (Path) de cada drone, se os dados já tiverem sido calculados

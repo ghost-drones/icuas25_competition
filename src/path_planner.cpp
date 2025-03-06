@@ -10,6 +10,8 @@
 
 #include <mutex>
 
+#include <sstream>  // Necessário para std::ostringstream
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -161,6 +163,11 @@ private:
         octomap::point3d destination_oct(request->destination.x, request->destination.y, request->destination.z);
         octomap::point3d support_oct(request->support.x, request->support.y, request->support.z);
         
+
+        std::ostringstream saida;
+        saida << "x:" << request->origin.x << " y:" << request->origin.y << " z:" << request->origin.z << " ";
+        RCLCPP_ERROR(this->get_logger(), "ORIGIN: %s", saida.str().c_str());
+
         // Parâmetros da busca
         bool path_found = false;
         double step_size = octree_->getResolution();
@@ -200,7 +207,7 @@ private:
             
             for (const auto &candidate : points_list) {
                 RCLCPP_DEBUG(this->get_logger(), "candidate: %.2f %.2f %.2f", candidate.x(), candidate.y(), candidate.z());
-
+            
                 //Se o candidato for o próprio support, avalia a linha de visão entre support e destination
                 if (candidate == support_oct) {
                     if (isLineOfSightFree(support_oct, destination_oct)) {
@@ -227,19 +234,18 @@ private:
                 path_found = true;
                 break; // Pára no primeiro candidato válido (mais próximo da origem)
             }
+            // end kernel code
+            
+            if (path_found) {
+                RCLCPP_ERROR(this->get_logger(), "BEST POINT: %s", saida.str().c_str());
+                response->path.x = best_point.x();
+                response->path.y = best_point.y();
+                response->path.z = best_point.z();
+            } else {
+                response->path = request->support;
+            }
         }
-        // end kernel code
-        
-        if (path_found) {
-            response->path.x = best_point.x();
-            response->path.y = best_point.y();
-            response->path.z = best_point.z();
-        } else {
-            response->path = request->support;
-        }
-    
     }
-
 };
 
 int main(int argc, char** argv)

@@ -65,6 +65,17 @@ ament_target_dependencies(path_planner
   octomap_msgs
 )
 
+# add_executable(pose_aruco src/pose_aruco.cpp)
+# ament_target_dependencies(pose_aruco
+#   rclcpp
+#   geometry_msgs
+#   octomap_msgs
+#   icuas25_msgs
+#   octomap
+#   octomap_msgs
+#   aruco_msgs
+# )
+
 # Novo executável: expand_octomap
 add_executable(expand_octomap src/expand_octomap.cpp)
 ament_target_dependencies(expand_octomap
@@ -92,6 +103,10 @@ install(TARGETS path_planner
 install(TARGETS expand_octomap
   DESTINATION lib/${PROJECT_NAME}
 )
+
+# install(TARGETS pose_aruco
+#   DESTINATION lib/${PROJECT_NAME}
+# )
 
 install(PROGRAMS
   scripts/TransformWorld2Odom.py

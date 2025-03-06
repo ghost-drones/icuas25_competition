@@ -126,7 +126,41 @@ class ManageSwarmNode(Node):
             time_to_charge,
             lambda: self.check_battery_and_proceed(drone_id)
         )
+        
 
+    def it_achieve(self,drone_id:int,cluster_origin:int) -> float:
+        self.avg_vel = 0.7
+        self.decrease_battery_value_per_second = 1
+        self.target = 20.0
+        
+        batteries = self.batteries[drone_id]
+        if isinstance(batteries,BatteryState):
+            percentage = batteries.percentage
+            trajectory_id = self.trajectories_id[drone_id]
+            for i, item in enumerate(trajectory_id[cluster_origin:], start=cluster_origin):
+                if isinstance(item, list):
+                    cluster_destination = i
+                    break
+            cluster_origin_id = trajectory_id[cluster_origin]
+            cluster_destination_id = trajectory_id[cluster_destination]
+            if isinstance(cluster_origin_id, list) and isinstance(cluster_destination_id, list):
+                origin = cluster_origin_id[-1]
+                duration_list = []
+                path = list(origin) + cluster_destination_id
+                for pos1, pos2 in zip(path, path[1:]):
+                    if isinstance(pos1,int) and isinstance(pos2,int):
+                        pos_1_point = self.trajectories_path[drone_id][pos1]
+                        pos_2_point = self.trajectories_path[drone_id][pos2]
+                        duration = self.calc_duration(pos_1_point,pos_2_point)
+                        duration_list.append(duration)
+                battery_usage_forecast = 0.0
+                for duration in duration_list:
+                    battery_usage_forecast += duration*self.avg_vel*self.decrease_battery_value_per_second
+                    if (percentage - battery_usage_forecast) < self.target:
+                        return False
+        return True
+        
+    
     def check_battery_and_proceed(self, drone_id):
         """
         Check if the drone's battery is fully charged. If so, proceed with the trajectory.
