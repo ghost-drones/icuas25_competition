@@ -31,6 +31,8 @@ class ArucoProcessor(Node):
         # Dicionários para armazenar as poses dos drones e os marcadores ativos, indexados pelo ID do robô
         self.drone_pose = {}
         self.active_markers = {}  # { robot_id: { marker_id: (last_detection_time, pose) } }
+        # Conjunto para armazenar os IDs dos targets já publicados
+        self.published_targets = set()
         
         # Cria as assinaturas para cada crazyflie, de cf_1 até cf_{NUM_ROBOTS}
         for i in range(1, num_robots + 1):
@@ -70,12 +72,15 @@ class ArucoProcessor(Node):
 
     def check_expired_markers(self):
         current_time = time.time()
-        # Para cada robô, verifica se algum marcador não foi atualizado há mais de 3 segundos
+        # Para cada robô, verifica se algum marcador não foi atualizado há mais de 1 segundo
         for robot_id, markers in self.active_markers.items():
             expired_ids = []
             for marker_id, (last_time, pose) in markers.items():
                 if current_time - last_time > 1.0:
-                    self.publish_target_info(pose.position.x, pose.position.y, pose.position.z, marker_id, robot_id)
+                    # Só publica se o target ainda não foi publicado
+                    if marker_id not in self.published_targets:
+                        self.publish_target_info(pose.position.x, pose.position.y, pose.position.z, marker_id, robot_id)
+                        self.published_targets.add(marker_id)
                     expired_ids.append(marker_id)
             for marker_id in expired_ids:
                 del markers[marker_id]
