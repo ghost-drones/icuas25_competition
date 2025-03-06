@@ -30,7 +30,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# Add C++ executable: territorial_waters
+# Add C++ executables
 add_executable(territorial_waters src/territorial_waters.cpp)
 ament_target_dependencies(territorial_waters
   rclcpp
@@ -42,7 +42,6 @@ ament_target_dependencies(territorial_waters
   tf2_ros
 )
 
-# Add C++ executable: hotspots
 add_executable(hotspots src/hotspots.cpp)
 ament_target_dependencies(hotspots
   rclcpp
@@ -56,6 +55,24 @@ ament_target_dependencies(hotspots
   icuas25_msgs
 )
 
+add_executable(path_planner src/path_planner.cpp)
+ament_target_dependencies(path_planner
+  rclcpp
+  geometry_msgs
+  octomap_msgs
+  icuas25_msgs
+  octomap
+  octomap_msgs
+)
+
+# Novo executável: expand_octomap
+add_executable(expand_octomap src/expand_octomap.cpp)
+ament_target_dependencies(expand_octomap
+  rclcpp
+  octomap
+  octomap_msgs
+)
+
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
@@ -65,6 +82,14 @@ install(TARGETS territorial_waters
 )
 
 install(TARGETS hotspots
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS path_planner
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS expand_octomap
   DESTINATION lib/${PROJECT_NAME}
 )
 

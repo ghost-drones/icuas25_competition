@@ -159,9 +159,14 @@ RUN cd $HOME/CrazySim/crazyflie-firmware \
 #install other ROS2 ws packages
 WORKDIR $HOME/CrazySim/ros2_ws/src
 RUN git clone https://github.com/JMU-ROBOTICS-VIVA/ros2_aruco.git 
+<<<<<<< HEAD
 RUN git clone https://github.com/ghost-drones/icuas25_competition.git
 RUN git clone https://github.com/ghost-drones/icuas25_sm.git
 RUN git clone -b hotspot_solution https://github.com/ghost-drones/icuas25_msgs.git
+=======
+RUN --mount=type=ssh git clone git@github.com:ghost-drones/icuas25_competition.git
+RUN --mount=type=ssh git clone -b hotspot_solution git@github.com:ghost-drones/icuas25_msgs.git
+>>>>>>> 37ccd71c99ecdc62e2ef611fdd0f50d9c8afd80b
 
 RUN git clone -b ros2 https://github.com/OctoMap/octomap_rviz_plugins.git
 
