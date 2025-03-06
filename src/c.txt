@@ -1,0 +1,10 @@
+1:
+  path planer
+2:
+  gerencia o movimento de cada drone
+
+  recebe lista de pontos de cada drone
+  manda comandos para os drones
+
+  recebe pose e dados
+

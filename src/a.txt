@@ -1,0 +1,212 @@
+Imagina que vc é um grande conhecer de lógica, de programação em c++, em ros2 humble e que está mt disposto a me ajudar
+eu te apresento o seguinte problema:
+
+Eu tenho um grande programa com vários nós e esse aqui é apenas um deles, eu tenho varios drones, eles devem ir para pontos diferentes pra cidade, um nó cuida de gerificar quais pontos eles devem ir. Outro nó cuida das trajetórias, ou seja, qual trajeto pontos cada um dos drones deve ir e esse aqui é o que dá qual é a trajetória entre cada ponto em si.
+Um dos problemas é o drone perder sinal, para isso eu tenho pontos de suporte, esse programa só recebe um ponto de suporte, pq ele cuida apenas das trajetórias dentro de um suporte.
+Assim eu tenho 5 variaveis de entrada e 1 de saída:
+
+Parametros de inicio (entrada):
+
+origin: informa um ponto de origem e é do tipo octomap::point3d (o centro do voxel onde o drone está)
+destination: informa um ponto de destino e é do tipo octomap::point3d (o centro do voxel onde o drone quer ir)
+support: informa um ponto de suporte e é do tipo octomap::point3d (o centro do voxel onde existe comunicação com o drone)
+support_radius_: é do tipo const unsigned e informa o raio de atuação do support 
+octree_: é do tipo std::shared_ptr<octomap::OcTree> e guarda a informação de uma cidade inteira, representada com voxels ocupados ou não
+_____________
+Parâmetros da retorno (saida):
+
+best_point: é um ponto que vou retornar solicitante e é do tipo octomap::point3d (o centro do voxel onde o drone irá primeiro para depois ir para o destination)
+
+___________
+legenda: 
+- todas as variaveis estão em ingles e eu vou te explicar em portugues, sempre que vc ver uma palavra em ingles, é pq ela é uma das variaiveis.
+- as variaveis que terminam com _ são variaveis da classe, como a support_radius_ e a octree_ e não são passadas para a função, mas usadas por ela
+_____________
+A situação é:
+o support é o que garante comunicação
+a origin é onde meu drone está
+o destination é para onde meu drone quer ir
+
+tanto a origin, quanto o destination precisam estar dentro de uma esfera de atuação do support
+o volume de atuação do support encontramos fazendo uma esfera com o centro em support e o raio dado pelo support_radius_
+as duas primeiras verificações são:
+Se a origin ou o destination não estão dentro da area de support, se isso acontecer uma msg de erro deverá ser exposta e o retorno será o ponto de support (é o retorno para qualquer erro)
+
+passado por isso a seguinte atuação deve ser feita:
+O programa traça um segmento de reta da origin ao support, o best_point será qualquer ponto dentro desse seguimento de reta, podendo ser a origin ao support.
+O melhor caso é a origin e o pior caso é o support.
+O programa terá um passo, onde ele começa da origin, verifica se é o best_point e se for, é o retorno, se não for, passa pro próximo
+
+E como ele verifica se esse ponto é o best_point? ele traça uma reta entre o candidato a best_point e o destination, se, nessa reta, colide com algum voxel ocupado da cidade, não é o best_point e passa pro próximo, se não colide e a reta é um caminho livre, é o nosso best_point
+
+consideração extra e MUITO IMPORTANTE PARA A VALIDAÇÃO DO best_point: os prédios bloqueam o sinal do support, então a reta só pode ser traçada em um caminho totalmente visivel pelo support. [[[Ele (o support) precisa exergar o drone do inicio (origin) ao fim (destination)]]] (essa é talvez a palavra que melhor representa o problema).
+
+consideração sobre a unidade do support_radius_: basicamente é um valor em unsigned que representa o numero de voxels em qualquer direção. Então se ele é 5, isso formará uma esfera no octomap com o centro a posição do support e com raio o numero de voxels fornecido pelo support_radius_, nesse caso 5. 
+
+_____________
+Parâmetros da busca (intermediarios):
+const unsigned step: é o que define o passo a ser usado para achar o best_point entre a origin e o support, inicializada em 1 (em voxel, isso quer dizer que ele irá andar em voxel em voxel, de todos os voxels do seguimento de reta, a fim de encontrar o best_point, se colocar 2 implica que ele andará em 2 em 2, pulando um e assim vai)
+bool path_found: é o que dita se um best_point foi de fato encontrado ou não, inicializa em false, se um best_point diferente do support for encontrado, ele deverá ser True (entenda, esse best_point é um Voxel, então a verificação será sempre verificando se o best_point é diferente do support, em termos de voxels diferentes)
+
+
+_____________
+Informações extras:
+
+O código está rodando em ros, essa função esta dentro de um serviço de um nó, na realidade ela é a implementação do serviço em si.
+
+A baixo irei passar uma estrutura do código, um esqueleto, sua função é preencher aonde está entre comentários
+// start kernel code 
+// ...
+// end kernel code
+
+substituindo // ... pelo codigo em si
+
+passarei tbm um arquivo .srv que dita a estrutura de requisição e resposta
+deverá ter uma validação da verificação tbm
+essa validação poderá ser preenchida no campo de 
+
+// start validations
+// end validations
+dentro do codigo
+
+importante dizer que vou te passar o codigo todo para vc ter uma noção de todo o nó ros
+
+e é importante que vc leia esse prompt, esse texto, duas vezes, afim de melhor entender o problema, uma vez que a explicação é não linear, tendo explicações no final sobre o inicio e o uso de conceitos no inicio que só são explicados no final.
+
+
+o arquivo path_planner.cpp
+
+#include "rclcpp/rclcpp.hpp"
+#include "geometry_msgs/msg/point.hpp"
+
+#include "icuas25_msgs/srv/path_service.hpp"
+#include "octomap_msgs/conversions.h"
+#include "octomap_msgs/msg/octomap.hpp"
+#include <octomap/octomap.h>
+#include <octomap/OcTree.h>
+
+#include <mutex>
+
+using std::placeholders::_1;
+using std::placeholders::_2;
+
+class PathPlanner : public rclcpp::Node
+{
+public:
+  PathPlanner()
+  : Node("path_planner"), support_radius_(5)
+  {
+    // Inicialização dos membros da classe
+    octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
+      "/ghost/octomap", 10,
+      std::bind(&PathPlanner::octomap_callback, this, _1));
+
+    service_ = this->create_service<icuas25_msgs::srv::PathService>(
+      "/ghost/path_planner",
+      std::bind(&PathPlanner::handle_service, this, _1, _2));
+
+    RCLCPP_INFO(this->get_logger(), "Path planning node initialized");
+  }
+
+private:
+  // Membros da classe corretamente declarados
+  rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr octomap_sub_;
+  rclcpp::Service<icuas25_msgs::srv::PathService>::SharedPtr service_;
+  
+  std::mutex octree_mutex_;
+  std::shared_ptr<octomap::OcTree> octree_;
+  const unsigned support_radius_;
+
+  void octomap_callback(const octomap_msgs::msg::Octomap::SharedPtr msg)
+  {
+    std::lock_guard<std::mutex> lock(octree_mutex_);
+    
+    try {
+        octree_ = std::shared_ptr<octomap::OcTree>(
+          dynamic_cast<octomap::OcTree*>(octomap_msgs::fullMsgToMap(*msg))
+        );
+
+        if(octree_){
+            RCLCPP_DEBUG(this->get_logger(), "Octomap atualizado. Resolução: %.3f", 
+                        octree_->getResolution());
+        }
+        else{
+          RCLCPP_ERROR(this->get_logger(), "Octomap NULO!!");
+        }
+    } 
+    catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Erro na conversão do Octomap: %s", e.what());
+    }
+  }
+
+  void handle_service(
+    const icuas25_msgs::srv::PathService::Request::SharedPtr request,
+    icuas25_msgs::srv::PathService::Response::SharedPtr response)
+  {
+    // start validations
+    std::lock_guard<std::mutex> lock(octree_mutex_);
+    
+    if (!octree_) {
+        RCLCPP_ERROR(this->get_logger(), "Octomap não disponível!");
+        return;
+    }
+    // ...
+    // end validations
+
+
+    // Parametros de inicio
+    // octree_, origin, destination, support, support_radius_
+
+    // Converter pontos ROS para octomap::point3d
+    octomap::point3d origin(request->origin.x, request->origin.y, request->origin.z);
+    octomap::point3d destination(request->destination.x, request->destination.y, request->destination.z);
+    octomap::point3d support(request->support.x, request->support.y, request->support.z);
+    //const unsigned support_radius_; (um dos 5 parametros de inicio)
+
+    // Parâmetros da busca
+    // step e path_found
+    const unsigned step = 1;
+    bool path_found = false;
+    
+    // Parâmetros da retorno
+    octomap::point3d best_point;
+
+    // start kernel code 
+    // ...
+    // end kernel code
+
+    if (path_found) {
+        response->path.x = best_point.x();
+        response->path.y = best_point.y();
+        response->path.z = best_point.z();
+    } else {
+        response->path.x = request->support.x;
+        response->path.y = request->support.y;
+        response->path.z = request->support.z;
+        RCLCPP_ERROR(this->get_logger(), "Não encontrado path");
+    }
+  }
+};
+
+int main(int argc, char** argv)
+{
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<PathPlanner>();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
+  return 0;
+}
+
+o arquivo PathService.srv (que é um serviço customizado de outro pacote, um pacote para as msgs custumizadas desse)
+geometry_msgs/Point origin
+geometry_msgs/Point destination
+geometry_msgs/Point support
+---
+geometry_msgs/Point path
+
+
+// considerações finais
+
+eu sei que se der erro como o destino não está dentro da zona deveria retornar isso para que ele não vá, mas isso não é responsabilidade desse codigo, ele apenas retorna um ponto. Quem está cuidando fazendo a requisição que deve gerenciar as trajetorias, isso aqui é só um retornador de pontos intermediarios.
+Como assim? um nó tem todos os pontos de leitura, outro tem as trajetórias (de qual ele tá e para qual ele deve ir)
+O problema é resolver de fato qual caminho ele pode fazer entre cada ponto, impedindo colisão com a cidade e a perda de sinal.

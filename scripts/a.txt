@@ -1,0 +1,35 @@
+Drone Id:  5                                                                                                                                                                                  
+Current:  0                                                                                                                                                                                   
+Reached:  False                                                                                                                                                                               
+geometry_msgs.msg.Point(x=14.507149696350098, y=-5.665474891662598, z=4.316051006317139)                                                                                                      
+geometry_msgs.msg.Point(x=17.079520000000002, y=-5.7747199999999985, z=4.199999999999999)                                                                                                     
+geometry_msgs.msg.Point(x=0.0, y=0.0, z=0.0)                                                                                                                                                  
+geometry_msgs.msg.PoseStamped(header=std_msgs.msg.Header(stamp=builtin_interfaces.msg.Time(sec=0, nanosec=0), frame_id=''), pose=geometry_msgs.msg.Pose(position=geometry_msgs.msg.Point(x=12.
+337749481201172, y=14.012069702148438, z=1.2604098320007324), orientation=geometry_msgs.msg.Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)))                                                          
+-------                                                                                                                                                                                       
+Drone Id:  1                                                                                                                                                                                  
+Current:  0                                                                                                                                                                                   
+Reached:  False                                                                                                                                                                               
+geometry_msgs.msg.Point(x=10.89964485168457, y=-13.90837574005127, z=4.213244915008545)                                                                                                       
+geometry_msgs.msg.Point(x=17.079520000000002, y=-5.7747199999999985, z=4.199999999999999)                                                                                                     
+geometry_msgs.msg.Point(x=0.0, y=0.0, z=0.0)                                                                                                                                                  
+geometry_msgs.msg.PoseStamped(header=std_msgs.msg.Header(stamp=builtin_interfaces.msg.Time(sec=0, nanosec=0), frame_id=''), pose=geometry_msgs.msg.Pose(position=geometry_msgs.msg.Point(x=12.
+337749481201172, y=14.012069702148438, z=1.2604098320007324), orientation=geometry_msgs.msg.Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)))                                          
+-------                                                                                                                                                                      
+Drone Id:  2                                                                                                                                                                                  
+Current:  0                                                                                                                                                                  
+Reached:  False                                                                                                                                                              
+geometry_msgs.msg.Point(x=11.789637565612793, y=-9.645928382873535, z=7.750762462615967)                                                                                     
+geometry_msgs.msg.Point(x=17.079520000000002, y=-5.7747199999999985, z=4.199999999999999)                                                                                    
+geometry_msgs.msg.Point(x=0.0, y=0.0, z=0.0)                                                                                                                                 
+geometry_msgs.msg.PoseStamped(header=std_msgs.msg.Header(stamp=builtin_interfaces.msg.Time(sec=0, nanosec=0), frame_id=''), pose=geometry_msgs.msg.Pose(position=geometry_msgs.msg.Point(x=12.
+337749481201172, y=14.012069702148438, z=1.2604098320007324), orientation=geometry_msgs.msg.Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)))                                          
+-------                                                                                                                                                                      
+Drone Id:  3                                                                                                                                                                                  
+Current:  0                                                                                                                                                                                   
+Reached:  False
+geometry_msgs.msg.Point(x=15.39483642578125, y=-6.538576126098633, z=7.03241491317749)                                                                                       
+geometry_msgs.msg.Point(x=17.079520000000002, y=-5.7747199999999985, z=4.199999999999999)                                                                                    
+geometry_msgs.msg.Point(x=0.0, y=0.0, z=0.0)                                          
+geometry_msgs.msg.PoseStamped(header=std_msgs.msg.Header(stamp=builtin_interfaces.msg.Time(sec=0, nanosec=0), frame_id=''), pose=geometry_msgs.msg.Pose(position=geometry_msgs.msg.Point(x=12.
+337749481201172, y=14.012069702148438, z=1.2604098320007324), orientation=geometry_msgs.msg.Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)))  
